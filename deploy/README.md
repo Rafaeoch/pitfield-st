@@ -8,20 +8,40 @@ awake, and serves the site from the same box that computes it.
 
 | | |
 |---|---|
-| Hetzner CX22 (2 vCPU, 4GB, 40GB) | ~€3.79/mo |
+| Server (see below) | €3.79–7.55/mo |
+| IPv4 address | ~€0.50/mo, billed separately |
 | Domain | ~$12/yr |
 | TLS | free, automatic, via Caddy |
 
-CX22 is enough. The weekly study is the only heavy job and it is bounded by the
-bootstrap resampling; `bootstrap.sh` adds 2GB of swap as insurance, because an
-earlier version of that job was OOM-killed on a machine with more memory than
-this one has.
+Two workable choices. The server types are not offered everywhere: the Intel
+`CX` line is EU-only, and the US locations sell the AMD `CPX` line instead, so
+"CX22 in Ashburn" is not a thing you can select.
+
+| | Type | Where | Specs | ~Price |
+|---|---|---|---|---|
+| Cheapest | **CX22** | Falkenstein / Nuremberg / Helsinki | 2 vCPU, 4GB, 40GB | €3.79/mo |
+| US-hosted | **CPX21** | Ashburn / Hillsboro | 3 vCPU, 4GB, 80GB | €7.55/mo |
+
+Take CX22 in the EU unless you specifically want US hosting. Nothing here is
+latency-sensitive: it is a once-a-day batch job against APIs, not a trading
+system, and being 90ms further from Alpaca is invisible to a job that runs
+twenty minutes after the close.
+
+Avoid the 2GB tiers (CPX11, CAX11 at 4GB is fine). 4GB is the number that
+matters, because the weekly study's bootstrap resampling is the only heavy job
+and an earlier version of it was OOM-killed on a machine with more memory than
+that. `bootstrap.sh` adds 2GB of swap as further insurance.
+
+Prices and the type lineup change; confirm both in the console rather than
+trusting this table.
 
 ## Order of operations
 
-**1. Create the server.** Hetzner Cloud, **Ubuntu 24.04**, CX22, in Ashburn or
-Falkenstein. Add your SSH key during creation. Ubuntu 24.04 specifically: it
-ships Python 3.12, which is what this project is developed against.
+**1. Create the server.** Hetzner Cloud, **Ubuntu 24.04**, CX22 in Falkenstein
+(or CPX21 in Ashburn for US hosting). Add your SSH key during creation, and do
+not enable the root-password option. Ubuntu 24.04 specifically: it ships Python
+3.12, which is what this project is developed against. Debian 12 ships 3.11 and
+would be a bet that nothing here uses 3.12 syntax.
 
 **2. Provision it.** From this repo:
 
