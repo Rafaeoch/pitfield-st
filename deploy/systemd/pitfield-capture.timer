@@ -1,0 +1,20 @@
+[Unit]
+Description=Pitfield St — capture window, hourly after the New York close
+
+[Timer]
+# The server runs on America/New_York (bootstrap.sh sets this), so these are
+# market-local times and tzdata handles the DST shift. A fixed UTC schedule
+# would drift an hour against the close twice a year and ingest a chain before
+# the bell for half the year.
+#
+# Hourly from 16:25 to 23:25 rather than once at 16:25. The job is idempotent
+# per session and gated on the market calendar, so the repeats cost nothing on
+# a normal day and buy a free retry when the venue times out on a bad one.
+OnCalendar=Mon-Fri 16..23:25:00
+# Fire on the next boot if the box was down when the window passed. Safe only
+# because the capture is idempotent and calendar-gated.
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

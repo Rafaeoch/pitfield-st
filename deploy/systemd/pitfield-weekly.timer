@@ -1,0 +1,10 @@
+[Unit]
+Description=Pitfield St — weekly research refresh
+
+[Timer]
+OnCalendar=Sun 09:15:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

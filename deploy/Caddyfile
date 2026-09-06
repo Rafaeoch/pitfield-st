@@ -1,0 +1,32 @@
+# Pitfield St. Caddy is here for one reason: automatic TLS with no cron job,
+# no certbot renewal that expires while you are not looking, and six lines of
+# configuration instead of sixty.
+#
+# DOMAIN_PLACEHOLDER is substituted by bootstrap.sh.
+
+DOMAIN_PLACEHOLDER {
+	root * /var/www/pitfield/current
+	file_server
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		# No Content-Security-Policy. Astro emits inline module scripts, so a
+		# strict policy needs per-build hashes; a permissive one with
+		# 'unsafe-inline' would be decoration rather than protection. Stated
+		# rather than quietly omitted.
+	}
+
+	# The archive JSON changes once a trading day. Five minutes keeps a reader
+	# who reloads after the close from seeing yesterday's surface.
+	header /data/*.json Cache-Control "public, max-age=300"
+	# 30MB of moon textures that will never change.
+	header /textures/* Cache-Control "public, max-age=604800, immutable"
+
+	handle_errors {
+		respond "{err.status_code} {err.status_text}" {err.status_code}
+	}
+}

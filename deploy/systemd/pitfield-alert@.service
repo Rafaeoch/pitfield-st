@@ -1,0 +1,18 @@
+[Unit]
+Description=Pitfield St — record a failed job (%i)
+
+[Service]
+# "A gap in the archive is worse than a loud error." A failed capture is a
+# permanent hole: the quotes it would have taken do not exist anywhere else and
+# cannot be reconstructed later from a fresh snapshot, because that snapshot
+# carries the wrong timestamp. So a failure is recorded where it can be found,
+# not left in the journal to be rotated away.
+Type=oneshot
+User=pitfield
+Group=pitfield
+EnvironmentFile=-/etc/pitfield/env
+ExecStart=/opt/pitfield/deploy/alert.sh %i
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/pitfield

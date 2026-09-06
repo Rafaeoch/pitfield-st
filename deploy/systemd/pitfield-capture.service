@@ -1,0 +1,36 @@
+[Unit]
+Description=Pitfield St — daily chain capture and publish
+Documentation=file:/opt/pitfield/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+OnFailure=pitfield-alert@%n.service
+
+[Service]
+Type=oneshot
+User=pitfield
+Group=pitfield
+WorkingDirectory=/opt/pitfield
+# The dash matters: the unit must still start without a credentials file, so a
+# box that has not been given keys yet fails inside the job with a clear message
+# rather than refusing to start with a systemd error nobody reads.
+EnvironmentFile=-/etc/pitfield/env
+Environment=PITFIELD_WWW=/var/www/pitfield
+ExecStart=/opt/pitfield/scripts/daily_capture.sh
+TimeoutStartSec=30min
+
+# The job needs the network, a writable checkout and a writable docroot. It
+# needs nothing else, so it gets nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/pitfield /var/www/pitfield
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
