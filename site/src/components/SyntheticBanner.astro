@@ -1,0 +1,23 @@
+---
+/**
+ * Shown on every page whose numbers came from the synthetic generator.
+ *
+ * This is load-bearing, not decoration. The archive is not yet fed by a
+ * licensed data source, and a site that publishes computed derivatives data
+ * has exactly one obligation it cannot compromise on: never let a reader
+ * mistake generated numbers for observed ones.
+ */
+interface Props { synthetic?: boolean }
+const { synthetic } = Astro.props;
+---
+{synthetic && (
+  <aside class="banner" role="note">
+    <strong>Synthetic data.</strong>
+    <p>
+      Every number on this page was computed from simulated option chains, not
+      from the market. The pipeline, the calibration and the statistics are real
+      and are the same code that will run on licensed data; the quotes they were
+      run against are not. Nothing here describes any actual security.
+    </p>
+  </aside>
+)}

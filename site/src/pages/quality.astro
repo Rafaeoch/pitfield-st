@@ -1,0 +1,220 @@
+---
+import Base from '../layouts/Base.astro';
+import SyntheticBanner from '../components/SyntheticBanner.astro';
+import { getIndex, getLatest, num, pct, int } from '../lib/archive';
+
+const latest = getLatest();
+const index = getIndex();
+const q = latest?.quality ?? {};
+const cov = latest?.coverage ?? {};
+const history = index?.history ?? [];
+---
+
+<Base
+  title="Quality"
+  description="The daily quality-control report for the archive: crossed markets, zero-bid share, stale quotes, fit failures and exclusion rates."
+>
+  <SyntheticBanner synthetic={latest?.synthetic} />
+
+  <h1>Quality</h1>
+  <p class="lede">
+    What the pipeline threw away today, and why. Every exclusion is counted and
+    published rather than silently dropped — the share of a chain that did not
+    make it into a fit is part of the result, not an implementation detail.
+  </p>
+
+  <h2>Today, {latest?.date}</h2>
+  <div class="grid-2">
+    <table>
+      <tbody>
+        <tr><th>Chain rows ingested</th><td class="n">{int(q.n_rows)}</td></tr>
+        <tr><th>Contracts used in fits</th><td class="n">{int(cov.n_contracts_in_fits)}</td></tr>
+        <tr><th>Excluded from fits</th><td class="n">{pct(cov.excluded_share, 1)}%</td></tr>
+        <tr><th>Expiries fitted</th><td class="n">{q.expiries_fitted}</td></tr>
+        <tr><th>Expiries rejected</th><td class="n">{q.expiries_rejected}</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <tbody>
+        <tr>
+          <th>Crossed markets (bid &gt; ask)</th>
+          <td class="n">{int(q.n_crossed)} <span class="of">of chain</span> {pct(q.crossed_share, 2)}%</td>
+        </tr>
+        <tr><th>Locked markets (bid = ask)</th><td class="n">{int(q.n_locked)}</td></tr>
+        <tr>
+          <th>Zero-bid contracts</th>
+          <td class="n">{int(q.n_zero_bid)} <span class="of">of chain</span> {pct(q.zero_bid_share, 1)}%</td>
+        </tr>
+        <tr><th>Stale quotes</th><td class="n">{int(q.n_stale)}</td></tr>
+        <tr><th>Adjusted contracts</th><td class="n">{int(q.n_adjusted)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="verdict">
+    Day verdict:
+    <span class={q.passed ? 'ok' : 'fault'}>{q.passed ? 'passed' : 'failed'}</span>
+    <span class="muted small">
+      — a day fails on structural problems (crossed markets above 1% of the
+      chain, a collapsed row count, or no expiry fitting at all), not on
+      cosmetic ones.
+    </span>
+  </p>
+
+  {q.fit_failures?.length > 0 && (
+    <>
+      <h3>Expiries rejected today</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th class="n">Days</th><th>Reason</th><th class="n">Parity R²</th></tr>
+          </thead>
+          <tbody>
+            {q.fit_failures.map((f: any) => (
+              <tr>
+                <td class="n">{f.days}</td>
+                <td class="fault">{f.reason}</td>
+                <td class="n">{num(f.parity_r2, 6)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )}
+
+  {q.strike_gaps?.length > 0 && (
+    <>
+      <h3>Strike grid gaps</h3>
+      <p class="small muted">
+        Increments more than twice the expiry's modal spacing. A gap is usually a
+        missing listing rather than a missing quote, and it matters because the
+        fit weights assume a roughly even strike grid.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Expiry</th><th class="n">After</th><th class="n">Before</th>
+              <th class="n">Gap</th><th class="n">Expected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {q.strike_gaps.slice(0, 12).map((g: any) => (
+              <tr>
+                <td class="num">{g.expiry}</td>
+                <td class="n">{num(g.after_strike, 2)}</td>
+                <td class="n">{num(g.before_strike, 2)}</td>
+                <td class="n">{num(g.gap, 2)}</td>
+                <td class="n">{num(g.expected_increment, 2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )}
+
+  <h2>History</h2>
+  <p class="small muted">
+    {int(history.length)} days archived. A sudden drop in row count means a
+    broken source, not a quiet market, so it is tracked against a trailing
+    20-day median and raises an alarm rather than a shrug.
+  </p>
+  <div class="chart" id="chart-quality"></div>
+  <div class="chart" id="chart-exclusion"></div>
+
+  <script type="application/json" id="quality-data" set:html={JSON.stringify({ history })} />
+</Base>
+
+<style>
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 0 2.6rem;
+    align-items: start;
+  }
+  .verdict { margin-top: 1.6rem; max-width: none; }
+  .of {
+    font-family: var(--serif);
+    font-size: 0.76rem;
+    color: var(--type-muted);
+    padding: 0 0.3rem;
+  }
+  .chart { margin: 1.2rem 0 0; min-height: 220px; }
+  :global(.chart svg) { max-width: 100%; height: auto; }
+  :global(.chart figure) { margin: 0; }
+</style>
+
+<script>
+  import * as Plot from '@observablehq/plot';
+
+  const el = document.getElementById('quality-data');
+  if (el) {
+    const { history } = JSON.parse(el.textContent!);
+    const AMBER = '#f0a860';
+    const FAULT = '#c4553d';
+    const MUTED = '#8a96a3';
+    const RULE = '#26313d';
+
+    const rows = history.map((d: any) => ({ ...d, date: new Date(d.date) }));
+    const base = {
+      style: { background: 'transparent', color: MUTED, fontSize: '12px' },
+      marginLeft: 58,
+      marginBottom: 34,
+      height: 220,
+    };
+
+    document.getElementById('chart-quality')?.append(
+      Plot.plot({
+        ...base,
+        y: { label: 'share of chain (%)', grid: true },
+        x: { label: null, grid: true },
+        marks: [
+          Plot.frame({ stroke: RULE }),
+          Plot.line(rows, {
+            x: 'date',
+            y: (d: any) => d.zero_bid_share * 100,
+            stroke: AMBER,
+            strokeWidth: 1.5,
+          }),
+          Plot.line(rows, {
+            x: 'date',
+            y: (d: any) => d.crossed_share * 100,
+            stroke: FAULT,
+            strokeWidth: 1.5,
+          }),
+          Plot.text(['zero-bid share'], {
+            frameAnchor: 'top-left', dx: 10, dy: 12, fill: AMBER, fontSize: 11,
+          }),
+          Plot.text(['crossed share'], {
+            frameAnchor: 'top-left', dx: 10, dy: 28, fill: FAULT, fontSize: 11,
+          }),
+        ],
+      })
+    );
+
+    document.getElementById('chart-exclusion')?.append(
+      Plot.plot({
+        ...base,
+        y: { label: 'excluded from fits (%)', grid: true, domain: [0, 100] },
+        x: { label: null, grid: true },
+        marks: [
+          Plot.frame({ stroke: RULE }),
+          Plot.areaY(rows, {
+            x: 'date',
+            y: (d: any) => d.excluded_share * 100,
+            fill: AMBER,
+            fillOpacity: 0.16,
+          }),
+          Plot.line(rows, {
+            x: 'date',
+            y: (d: any) => d.excluded_share * 100,
+            stroke: AMBER,
+            strokeWidth: 1.5,
+          }),
+        ],
+      })
+    );
+  }
+</script>

@@ -1,0 +1,352 @@
+---
+import Base from '../layouts/Base.astro';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+import { getLatest } from '../lib/archive';
+
+const latest = getLatest();
+
+/** Render at build time. No client-side maths, no layout shift. */
+const tex = (src: string, display = true) =>
+  katex.renderToString(src, { displayMode: display, throwOnError: false });
+
+const eq = {
+  parity: String.raw`C(K) - P(K) = e^{-rT}F - e^{-rT}K`,
+  paritySolve: String.raw`r = -\frac{\ln(-\beta)}{T}, \qquad F = -\frac{\alpha}{\beta}`,
+  svi: String.raw`w(k) = a + b\left[\rho(k-m) + \sqrt{(k-m)^2 + \sigma^2}\right]`,
+  sviConstraints: String.raw`b \ge 0, \quad |\rho| < 1, \quad \sigma > 0, \quad a + b\sigma\sqrt{1-\rho^2} \ge 0`,
+  wmin: String.raw`k - m = -\frac{\rho\sigma}{\sqrt{1-\rho^2}} \;\Longrightarrow\; w_{\min} = a + b\sigma\sqrt{1-\rho^2}`,
+  durrleman: String.raw`g(k) = \left(1 - \frac{k\,w'(k)}{2w(k)}\right)^{\!2} - \frac{w'(k)^2}{4}\left(\frac{1}{w(k)} + \frac14\right) + \frac{w''(k)}{2}`,
+  calendar: String.raw`\frac{\partial w(k,T)}{\partial T} \ge 0 \quad \text{for all } k`,
+  d1d2: String.raw`d_1 = \frac{\ln(F/K) + \tfrac12\sigma^2T}{\sigma\sqrt{T}}, \qquad d_2 = d_1 - \sigma\sqrt{T}`,
+  firstOrder: String.raw`\Delta = e^{-rT}N(d_1), \quad \Gamma = \frac{e^{-rT}\varphi(d_1)}{F\sigma\sqrt{T}}, \quad \mathcal{V} = e^{-rT}F\varphi(d_1)\sqrt{T}`,
+  secondOrder: String.raw`\text{vanna} = -\frac{e^{-rT}\varphi(d_1)d_2}{\sigma}, \qquad \text{volga} = \mathcal{V}\,\frac{d_1 d_2}{\sigma}`,
+  vannaDerivation: String.raw`\frac{\partial \mathcal{V}}{\partial F} = e^{-rT}\sqrt{T}\,\varphi(d_1)\left[1 - \frac{d_1}{\sigma\sqrt{T}}\right] = -\frac{e^{-rT}\varphi(d_1)d_2}{\sigma}`,
+  cmv: String.raw`w(T^\ast) = w(T_i) + \frac{T^\ast - T_i}{T_{i+1} - T_i}\left[w(T_{i+1}) - w(T_i)\right], \qquad \sigma^\ast = \sqrt{w(T^\ast)/T^\ast}`,
+  skewSlope: String.raw`\frac{\partial \sigma}{\partial k}\bigg|_{k=0} = \frac{w'(0)}{2T\sigma(0)}`,
+  gex: String.raw`\mathrm{GEX}(K) = \Gamma(K)\cdot \mathrm{OI}(K)\cdot \text{multiplier}\cdot S^2 \cdot 0.01`,
+  yz: String.raw`\sigma^2_{YZ} = \sigma^2_{\text{overnight}} + k\,\sigma^2_{\text{oc}} + (1-k)\,\sigma^2_{RS}, \qquad k = \frac{0.34}{1.34 + \frac{N+1}{N-1}}`,
+  vrp: String.raw`\mathrm{VRP}(t) = \mathrm{IV}_{30}(t) - \mathrm{RV}_{30}(t \to t+30)`,
+};
+---
+
+<Base
+  title="Methodology"
+  description="How the archive computes forwards, implied volatilities, arbitrage-free surfaces, greeks and chain aggregates."
+>
+  <h1>Methodology</h1>
+  <p class="lede">
+    Every metric published on this site traces to a formula on this page. Where
+    a choice was made — a convention, a filter, an assumption about flow — it is
+    named here rather than buried in code.
+  </p>
+
+  <nav class="toc" aria-label="Contents">
+    <ol>
+      <li><a href="#forward">Forward and rate extraction</a></li>
+      <li><a href="#surface">Surface calibration</a></li>
+      <li><a href="#arbitrage">Arbitrage conditions</a></li>
+      <li><a href="#greeks">Greeks and units</a></li>
+      <li><a href="#metrics">Derived metrics</a></li>
+      <li><a href="#realized">Realized volatility</a></li>
+      <li><a href="#aggregates">Chain aggregates</a></li>
+      <li><a href="#filters">Filtering and exclusions</a></li>
+      <li><a href="#limitations">Known limitations</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="forward">1. Forward and rate extraction</h2>
+  <p>
+    We do not plug in a Treasury yield and a dividend estimate. Both are backed
+    out of the chain, per expiry, from put–call parity:
+  </p>
+  <Fragment set:html={tex(eq.parity)} />
+  <p>
+    This is linear in <em>K</em> with slope <span class="num">β = −e<sup>−rT</sup></span>
+    and intercept <span class="num">α = e<sup>−rT</sup>F</span>, so a single
+    regression of the call-minus-put mid on strike gives both quantities:
+  </p>
+  <Fragment set:html={tex(eq.paritySolve)} />
+  <p>
+    The forward recovered this way already contains dividends and borrow cost,
+    which is precisely why it beats assuming them. A hard-coded dividend yield
+    is the usual reason a fitted surface comes out skewed.
+  </p>
+  <p>
+    We use strikes in roughly the 0.85–1.15 moneyness band, where both legs are
+    liquid, and fit twice: once against a spot-referenced band to obtain a first
+    forward, then again against a band referenced to that forward. The
+    regression <span class="num">R²</span> is recorded per expiry and the expiry
+    is rejected below <span class="num">0.99</span>. A poor parity fit means bad
+    quotes, not an exotic forward.
+  </p>
+  <div class="aside">
+    <h3>A precision note on the rate</h3>
+    <p>
+      The forward is recovered essentially exactly at every maturity. The rate is
+      not. Because <span class="num">r = −ln(−β)/T</span>, any slope error is
+      amplified by <span class="num">1/T</span>: at one week that factor exceeds
+      50, so tick rounding alone moves the extracted rate by tens of basis
+      points, while at one year the same rounding moves it by less than one. The
+      forward is the number this step exists to produce and it is reliable
+      throughout; the short-dated rate is a by-product and is published as such.
+      Downstream, the rate enters only as a discount factor, where the
+      sensitivity is second order.
+    </p>
+  </div>
+
+  <h2 id="surface">2. Surface calibration</h2>
+  <p>
+    We work in total implied variance <span class="num">w = σ²T</span> against
+    log-moneyness <span class="num">k = ln(K/F)</span>, using Gatheral's raw SVI
+    parameterisation:
+  </p>
+  <Fragment set:html={tex(eq.svi)} />
+  <p>subject to</p>
+  <Fragment set:html={tex(eq.sviConstraints)} />
+  <p>
+    The final constraint is exactly the statement that total variance is
+    non-negative everywhere. Setting <span class="num">w′(k) = 0</span> puts the
+    minimum where the wing slopes <span class="num">b(ρ ± 1)</span> balance:
+  </p>
+  <Fragment set:html={tex(eq.wmin)} />
+  <p>
+    Mid prices are inverted to implied volatilities with Black-76 on the
+    extracted forward, by Brent search on a bracketed interval; a contract whose
+    price falls outside the no-arbitrage bounds has no implied volatility and is
+    dropped and counted rather than coerced to a number. Each expiry is then
+    calibrated by constrained weighted least squares (SLSQP), seeded from the
+    previous day's parameters — surfaces move slowly, and a warm start keeps the
+    parameter time series stable instead of hopping between equivalent optima.
+  </p>
+  <p>
+    Residuals are weighted by vega, never equally. Equal weighting lets illiquid
+    wings dominate a fit that matters most at the money, and the wing failure
+    mode that actually occurs is bias rather than noise: wing markets are wide,
+    and the mid of a wide market is systematically off.
+  </p>
+
+  <h2 id="arbitrage">3. Arbitrage conditions</h2>
+  <p>
+    Both conditions are checked on every surface, every day, and the results —
+    including the failures — are published.
+  </p>
+  <h3>Butterfly (Durrleman)</h3>
+  <Fragment set:html={tex(eq.durrleman)} />
+  <p>
+    <span class="num">g(k) ≥ 0</span> everywhere is equivalent to the fitted
+    smile implying a non-negative probability density. We evaluate it on a dense
+    grid and publish <span class="num">min g(k)</span> for every expiry, so a
+    reader sees the margin rather than a boolean.
+  </p>
+  <h3>Calendar</h3>
+  <Fragment set:html={tex(eq.calendar)} />
+  <p>
+    Total variance must not decrease with maturity at fixed log-moneyness.
+  </p>
+  <div class="aside">
+    <h3>Where the conditions are evaluated</h3>
+    <p>
+      Both are checked only across the log-moneyness range where that expiry had
+      quotable contracts, and the surface is published only over the same range.
+      This is not a way of hiding violations — it is the difference between a
+      violation and an artefact. A seven-day expiry has no quotes thirty percent
+      out of the money, so its fitted value there is pure extrapolation, and
+      comparing that extrapolation against a longer expiry that does have quotes
+      reports a crossing between one real curve and one invented one. We claim
+      arbitrage-freedom only where we publish a number, and the rendered surface
+      carries a ragged edge for the same reason: that edge is the data support.
+    </p>
+  </div>
+
+  <h2 id="greeks">4. Greeks and units</h2>
+  <p>
+    Everything is priced on the extracted forward with Black-76, which removes
+    the dividend problem entirely because dividends are already inside
+    <span class="num">F</span>.
+  </p>
+  <Fragment set:html={tex(eq.d1d2)} />
+  <Fragment set:html={tex(eq.firstOrder)} />
+  <Fragment set:html={tex(eq.secondOrder)} />
+  <p>
+    Vanna is <span class="num">∂𝒱/∂F</span> and volga is
+    <span class="num">∂𝒱/∂σ</span>; neither is asserted. Differentiating vega
+    with respect to the forward and using
+    <span class="num">d₂ = d₁ − σ√T</span>:
+  </p>
+  <Fragment set:html={tex(eq.vannaDerivation)} />
+  <p>
+    Theta and charm are one-day finite differences with a bump of
+    <span class="num">1/365</span> years, documented here because the bump size
+    is part of the number. Closed forms exist; a bump is easier to verify against
+    a repriced option, and the test suite checks it against the analytic result.
+  </p>
+  <table class="units">
+    <caption>Published units. Half of all greek disagreements are unit disagreements.</caption>
+    <tbody>
+      <tr><th>Vega</th><td>per volatility point, i.e. per 0.01 of σ</td></tr>
+      <tr><th>Theta, charm</th><td>per calendar day</td></tr>
+      <tr><th>Delta, gamma, vanna, volga</th><td>per unit of forward, discounted to today</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="metrics">5. Derived metrics</h2>
+  <h3>Constant-maturity implied volatility</h3>
+  <p>
+    Interpolation is in <em>total variance</em>, then converted back:
+  </p>
+  <Fragment set:html={tex(eq.cmv)} />
+  <p>
+    Total variance is the quantity that is additive in time. Interpolating
+    volatility directly is wrong and produces a term structure that sags between
+    listed expiries — it is a common tell. We do not extrapolate beyond the last
+    listed expiry; a target outside the quoted range returns null.
+  </p>
+  <h3>Skew</h3>
+  <p>
+    The 25-delta risk reversal and butterfly are computed at the strikes where
+    delta genuinely equals 25, solved on the fitted smile: the strike at a given
+    delta depends on the volatility there, which depends on the strike, so it is
+    a root-find rather than an ATM-volatility approximation. The at-the-money
+    skew slope is taken analytically from the fit:
+  </p>
+  <Fragment set:html={tex(eq.skewSlope)} />
+  <h3>Variance risk premium</h3>
+  <Fragment set:html={tex(eq.vrp)} />
+  <p>
+    Only computable thirty days after the fact. It is published lagged and
+    labelled as such. A forward-looking VRP presented as though it were known is
+    a lookahead bug wearing a metric's clothes.
+  </p>
+
+  <h2 id="realized">6. Realized volatility</h2>
+  <p>
+    Five estimators at 5, 10, 21, 63 and 252 trading days, annualised on 252
+    days: close-to-close, Parkinson, Garman–Klass, Rogers–Satchell and
+    Yang–Zhang.
+  </p>
+  <Fragment set:html={tex(eq.yz)} />
+  <p>
+    They are published side by side because they measure different things.
+    Parkinson, Garman–Klass and Rogers–Satchell use only intraday prices and are
+    structurally blind to the overnight gap, so on gappy data they sit below
+    close-to-close; Yang–Zhang is the one that adds the gap back. Rogers–Satchell
+    is additionally drift-independent, which the other two are not.
+  </p>
+  <p>
+    We also publish <span class="num">σ<sub>P</sub> / σ<sub>CC</sub></span>, the
+    ratio of the range-based estimator to close-to-close. It reads as an
+    intraday-range indicator and essentially nobody publishes it.
+  </p>
+
+  <h2 id="aggregates">7. Chain aggregates</h2>
+  <Fragment set:html={tex(eq.gex)} />
+  <p>Dollar gamma per 1% move in spot.</p>
+  <div class="aside fault-aside">
+    <h3>The sign convention is an assumption, not a fact</h3>
+    <p>
+      The common convention treats dealers as long gamma from calls and short
+      from puts. That assumes customers buy puts and sell calls — a
+      generalisation about flow, not something anyone can observe, since no
+      dealer's book is public. It is implemented as a configuration flag, the
+      chosen convention travels with the number in the output schema, and it is
+      restated on every page that displays a gamma figure. Flagging this
+      assumption is a stronger signal about the number than the number itself.
+    </p>
+    <p>
+      Open interest compounds the problem: it is <em>previous-day settled</em>,
+      so today's reported figure reflects yesterday's positions. Every metric
+      built on it is timestamped to the open interest's effective date, not to
+      the snapshot date.
+    </p>
+  </div>
+
+  <h2 id="filters">8. Filtering and exclusions</h2>
+  <p>Before calibration a contract is dropped if it is:</p>
+  <ul>
+    <li>zero-bid, or crossed (bid above ask);</li>
+    <li>carrying no open interest;</li>
+    <li>an adjusted contract — a non-standard deliverable prices off something else and will wreck a calibration silently;</li>
+    <li>beyond <span class="num">|k| &gt; 1.5</span>;</li>
+    <li>on the in-the-money side, where value is dominated by intrinsic and implied volatility is noise amplified by a small vega;</li>
+    <li>not invertible to a finite implied volatility.</li>
+  </ul>
+  <p>
+    Nothing is dropped silently. Counts are published per expiry and in
+    aggregate on <a href="/quality/">the quality page</a>, because the share of a
+    chain excluded from a fit is part of the result: a surface fitted to a third
+    of a chain is a different object from one fitted to all of it.
+  </p>
+
+  <h2 id="limitations">9. Known limitations</h2>
+  <ul>
+    {latest?.synthetic && (
+      <li>
+        <strong class="fault">The archive currently runs on synthetic chains.</strong>
+        The pipeline, calibration and statistics are real and are the same code
+        that will run against licensed data, but the quotes they are presently
+        run against are generated. Nothing on this site describes an actual
+        security today.
+      </li>
+    )}
+    <li>
+      Expiries are fitted independently. A global SSVI fit across maturities —
+      which would enforce the calendar condition by construction rather than
+      checking it after the fact — is specified but not yet built.
+    </li>
+    <li>
+      Open interest lags by a day and cannot be corrected, only labelled.
+    </li>
+    <li>
+      The gamma exposure sign convention cannot be validated against actual
+      dealer positioning, because that data does not exist publicly.
+    </li>
+    <li>
+      Implied volatilities are inverted from mid quotes. A mid is not a
+      transactable price, and in wide markets it is a poor estimate of one.
+    </li>
+  </ul>
+</Base>
+
+<style>
+  .toc {
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 0.9rem 0;
+    margin: 2rem 0 2.5rem;
+  }
+  .toc ol {
+    columns: 2;
+    column-gap: 2.5rem;
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.92rem;
+  }
+  .toc li { max-width: none; margin: 0.15rem 0; }
+  @media (max-width: 620px) { .toc ol { columns: 1; } }
+
+  .aside {
+    border-left: 2px solid var(--rule);
+    padding: 0.2rem 0 0.2rem 1.15rem;
+    margin: 1.8rem 0;
+  }
+  .aside h3 { margin-top: 0; font-size: 0.98rem; }
+  .fault-aside { border-left-color: var(--fault); }
+  .fault-aside h3 { color: var(--fault); }
+
+  .units { margin: 1.4rem 0; max-width: var(--measure); }
+  .units caption {
+    text-align: left;
+    color: var(--type-muted);
+    font-size: 0.85rem;
+    padding-bottom: 0.5rem;
+  }
+
+  :global(.katex-display) {
+    margin: 1.4rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.2rem 0;
+  }
+  :global(.katex) { color: var(--type); }
+</style>

@@ -1,0 +1,437 @@
+---
+/**
+ * The Moon, rendered from actual geometry.
+ *
+ * The terminator is not drawn. The light is placed along the true Moon-to-Sun
+ * vector and the camera along the true Moon-to-Earth vector, both exported from
+ * DE440s, so the phase falls out of the lighting model rather than being
+ * approximated by a shader parameter. Libration is applied as a real rotation,
+ * which is why the limb detail shifts over a month instead of sitting still.
+ *
+ * Surface is NASA LROC albedo with the LOLA elevation model as a displacement
+ * map. See /textures/SOURCES.md.
+ */
+interface Props { height?: string }
+const { height = '58vh' } = Astro.props;
+---
+
+<div class="moon-stage" style={`--moon-height:${height}`}>
+  <div class="starfield" aria-hidden="true"></div>
+  <div
+    class="moon-canvas"
+    id="moon-globe"
+    role="img"
+    tabindex="0"
+    aria-label="Three-dimensional render of the Moon at its current phase, with correct terminator and libration. Drag or use arrow keys to rotate."
+  ></div>
+</div>
+
+<div class="moon-controls">
+  <label class="scrub">
+    <span class="ctl-label">Date</span>
+    <input type="range" id="moon-scrub" min="0" max="100" value="50" step="1"
+           aria-describedby="moon-scrub-readout" />
+  </label>
+  <p class="scrub-readout" id="moon-scrub-readout">
+    <output id="moon-date">—</output>
+    <span class="sep" aria-hidden="true"></span>
+    <span id="moon-phase-label">—</span>
+    <span class="sep" aria-hidden="true"></span>
+    <span id="moon-lit-label">—</span>
+  </p>
+  <div class="ctl-buttons">
+    <button type="button" id="moon-today">Today</button>
+    <button type="button" id="moon-play" aria-pressed="false">Run a month</button>
+  </div>
+</div>
+
+<style>
+  .moon-stage {
+    position: relative;
+    height: var(--moon-height);
+    min-height: 340px;
+    overflow: hidden;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 45%, #131c2b 0%, #0b1017 62%, #070a0f 100%);
+  }
+  .starfield { position: absolute; inset: 0; pointer-events: none; }
+  .moon-canvas {
+    position: absolute;
+    inset: 0;
+    cursor: grab;
+    touch-action: none;
+  }
+  .moon-canvas:active { cursor: grabbing; }
+  .moon-canvas canvas { display: block; }
+
+  .moon-controls {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 1rem clamp(1rem, 4vw, 3rem) 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.7rem 1.8rem;
+  }
+  .scrub { flex: 1 1 320px; order: 1; }
+  .ctl-buttons { order: 2; }
+  .scrub-readout { order: 3; flex: 1 0 100%; }
+
+  .ctl-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--type-muted);
+    margin-bottom: 0.3rem;
+  }
+  .scrub input { width: 100%; accent-color: var(--amber); }
+
+  .scrub-readout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+    max-width: none;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--type-muted);
+  }
+  .scrub-readout output { color: var(--type); }
+  .scrub-readout .sep { width: 1px; height: 0.9em; background: var(--rule); }
+
+  .ctl-buttons { display: flex; gap: 0.6rem; align-items: end; }
+  .moon-controls button {
+    font: inherit;
+    font-size: 0.86rem;
+    background: transparent;
+    color: var(--type);
+    border: 1px solid var(--rule);
+    padding: 0.36rem 0.85rem;
+    cursor: pointer;
+  }
+  .moon-controls button:hover { border-color: var(--amber); color: var(--amber); }
+  .moon-controls button[aria-pressed='true'] { border-color: var(--amber); color: var(--amber); }
+</style>
+
+<script>
+  import * as THREE from 'three';
+
+  const host = document.getElementById('moon-globe');
+  const stage = document.querySelector('.starfield') as HTMLElement | null;
+
+  // --- starfield: a static plate, not a twinkling gimmick -----------------
+  // Deterministic from a fixed seed so the sky does not reshuffle on every
+  // navigation. Nothing here animates.
+  function drawStars(el: HTMLElement) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      canvas.width = el.clientWidth * dpr;
+      canvas.height = el.clientHeight * dpr;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, el.clientWidth, el.clientHeight);
+
+      let seed = 20260902;
+      const rand = () => {
+        seed = (seed * 1664525 + 1013904223) % 4294967296;
+        return seed / 4294967296;
+      };
+      const n = Math.floor((el.clientWidth * el.clientHeight) / 5200);
+      for (let i = 0; i < n; i++) {
+        const x = rand() * el.clientWidth;
+        const y = rand() * el.clientHeight;
+        const m = rand();
+        const r = m > 0.985 ? 1.5 : m > 0.9 ? 1.0 : 0.6;
+        const a = 0.18 + m * 0.55;
+        // Faint warm cast on the brightest few, cool on the rest.
+        ctx.fillStyle = m > 0.985 ? `rgba(240,200,160,${a})` : `rgba(214,226,240,${a})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+    el.appendChild(canvas);
+    resize();
+    new ResizeObserver(resize).observe(el);
+  }
+  if (stage) drawStars(stage);
+
+  async function mountMoon(el: HTMLElement) {
+    let payload: any;
+    let data: any;
+    try {
+      payload = await fetch('/data/moon.json').then((r) => r.json());
+      data = payload.moon;
+    } catch {
+      el.innerHTML = '<p style="display:grid;place-items:center;height:100%;color:#8a96a3">Ephemeris unavailable.</p>';
+      return;
+    }
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    el.appendChild(renderer.domElement);
+
+    const loader = new THREE.TextureLoader();
+    const albedo = loader.load('/textures/moon_albedo.jpg', () => render());
+    const displacement = loader.load('/textures/moon_displacement.jpg', () => render());
+    albedo.colorSpace = THREE.SRGBColorSpace;
+
+    const moon = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 160, 160),
+      new THREE.MeshStandardMaterial({
+        map: albedo,
+        displacementMap: displacement,
+        // The Moon is 3474 km across with ~19 km of relief. Exaggerated here,
+        // but only slightly: enough for the terminator to catch crater rims,
+        // which is the detail that sells a real render.
+        displacementScale: 0.021,
+        displacementBias: -0.008,
+        bumpMap: displacement,
+        bumpScale: 2.2,
+        roughness: 0.98,
+        metalness: 0.0,
+      })
+    );
+    scene.add(moon);
+
+    // Ecliptic vectors from DE440s. Three.js is Y-up while the exported frame
+    // is Z-up ecliptic, so Y and Z swap on the way in.
+    const toThree = (v: number[]) => new THREE.Vector3(v[0], v[2], -v[1]).normalize();
+    const sunDir = toThree(data.sun_direction);
+    const earthDir = toThree(data.earth_direction);
+
+    // Rotate into a frame where the Earth direction is +Z, the axis the camera
+    // starts on. This is the step that makes the phase correct: the lit
+    // fraction of the visible disc is (1 + cos i) / 2 for a Sun-Moon-Earth
+    // angle i, and that only holds if the angle between the camera axis and
+    // the light is genuinely i. Lighting from the true Sun vector while
+    // leaving the camera on an arbitrary axis produces a plausible-looking
+    // moon at the wrong phase — which is exactly the class of error this page
+    // exists to avoid.
+    const eclipticNorth = new THREE.Vector3(0, 1, 0);
+    function sunInViewFrame(sv: THREE.Vector3, ev: THREE.Vector3) {
+      const zAxis = ev.clone();
+      const xAxis = new THREE.Vector3().crossVectors(eclipticNorth, zAxis).normalize();
+      const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+      return new THREE.Vector3(sv.dot(xAxis), sv.dot(yAxis), sv.dot(zAxis));
+    }
+
+    const sunInView = sunInViewFrame(sunDir, earthDir);
+
+    // Sunlight along the true Sun direction, expressed in the viewing frame.
+    // The terminator is then whatever the lighting model produces.
+    const sun = new THREE.DirectionalLight(0xfff4e2, 3.1);
+    sun.position.copy(sunInView).multiplyScalar(12);
+    scene.add(sun);
+
+    // Earthshine: the faint blue-grey glow on the dark limb, from sunlight
+    // reflected off Earth. Real, and the thing that makes a crescent look like
+    // a photograph rather than a logo. It arrives from the Earth, which in
+    // this frame is straight down the +Z axis.
+    const earthshine = new THREE.DirectionalLight(0x9db4d4, 0.11);
+    earthshine.position.set(0, 0, 12);
+    scene.add(earthshine);
+    scene.add(new THREE.AmbientLight(0x243040, 0.32));
+
+    // Report the geometry the render actually produced, so a mismatch against
+    // the published figure is visible in the console rather than silent.
+    const litFraction = (1 + sunInView.clone().normalize().z) / 2;
+    if (Math.abs(litFraction - data.illuminated) > 0.02) {
+      console.warn(
+        `moon: rendered lit fraction ${litFraction.toFixed(3)} does not match ` +
+        `published ${Number(data.illuminated).toFixed(3)}`
+      );
+    }
+
+    // Libration: the Moon's real rocking, +/-7.9 deg in longitude and +/-6.7 in
+    // latitude. Without it the same face sits frozen and the limb never shifts.
+    moon.rotation.y = THREE.MathUtils.degToRad(-data.libration_longitude);
+    moon.rotation.x = THREE.MathUtils.degToRad(data.libration_latitude);
+
+    let radius = 3.4;
+    let azimuth = 0;
+    let polar = Math.PI / 2;
+    const applyCamera = () => {
+      camera.position.set(
+        radius * Math.sin(polar) * Math.sin(azimuth),
+        radius * Math.cos(polar),
+        radius * Math.sin(polar) * Math.cos(azimuth)
+      );
+      camera.lookAt(0, 0, 0);
+    };
+
+    const render = () => renderer.render(scene, camera);
+    const resize = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w / Math.max(h, 1);
+      camera.updateProjectionMatrix();
+      applyCamera();
+      render();
+    };
+    resize();
+    new ResizeObserver(resize).observe(el);
+
+    // --- interaction -----------------------------------------------------
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+    el.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      azimuth -= (e.clientX - lastX) * 0.006;
+      polar = Math.min(Math.max(polar - (e.clientY - lastY) * 0.005, 0.15), Math.PI - 0.15);
+      lastX = e.clientX;
+      lastY = e.clientY;
+      applyCamera();
+      render();
+    });
+    const stop = (e: PointerEvent) => {
+      dragging = false;
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+    };
+    el.addEventListener('pointerup', stop);
+    el.addEventListener('pointercancel', stop);
+    el.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      radius = Math.min(Math.max(radius * Math.exp(e.deltaY * 0.0012), 2.1), 9);
+      applyCamera();
+      render();
+    }, { passive: false });
+    el.addEventListener('keydown', (e) => {
+      const step = 0.1;
+      if (e.key === 'ArrowLeft') azimuth += step;
+      else if (e.key === 'ArrowRight') azimuth -= step;
+      else if (e.key === 'ArrowUp') polar = Math.max(polar - step, 0.15);
+      else if (e.key === 'ArrowDown') polar = Math.min(polar + step, Math.PI - 0.15);
+      else if (e.key === '+' || e.key === '=') radius = Math.max(radius - 0.3, 2.1);
+      else if (e.key === '-') radius = Math.min(radius + 0.3, 9);
+      else return;
+      e.preventDefault();
+      applyCamera();
+      render();
+    });
+
+    // --- history: re-light and re-rotate for any archived date ----------
+    // Every frame here is an ephemeris lookup, not an interpolation. Scrubbing
+    // back a month shows the Moon as it actually was, including the libration
+    // that had rolled a different part of the limb into view.
+    const history = payload.moon_history;
+    const scrub = document.getElementById('moon-scrub') as HTMLInputElement | null;
+    const dateOut = document.getElementById('moon-date');
+    const phaseOut = document.getElementById('moon-phase-label');
+    const litOut = document.getElementById('moon-lit-label');
+    const historyStart = history ? new Date(history.start + 'T00:00:00Z') : null;
+
+    function applyDate(i: number) {
+      if (!history) return;
+      const sv = new THREE.Vector3(
+        history.sun_direction[i * 3],
+        history.sun_direction[i * 3 + 2],
+        -history.sun_direction[i * 3 + 1]
+      ).normalize();
+      const ev = new THREE.Vector3(
+        history.earth_direction[i * 3],
+        history.earth_direction[i * 3 + 2],
+        -history.earth_direction[i * 3 + 1]
+      ).normalize();
+
+      sun.position.copy(sunInViewFrame(sv, ev)).multiplyScalar(12);
+      moon.rotation.y = THREE.MathUtils.degToRad(-history.libration_longitude[i]);
+      moon.rotation.x = THREE.MathUtils.degToRad(history.libration_latitude[i]);
+      render();
+
+      const when = new Date(historyStart!.getTime() + i * 86400000);
+      const iso = when.toISOString().slice(0, 10);
+      if (dateOut) dateOut.textContent = iso;
+      if (phaseOut) phaseOut.textContent = String(history.phase_name[i]).replace(/_/g, ' ');
+      if (litOut) litOut.textContent = (history.illuminated[i] * 100).toFixed(1) + '% lit';
+
+      // Update the page readout too, so the figures never disagree with the
+      // picture above them.
+      const set = (field: string, value: string) => {
+        document.querySelectorAll(`[data-moon="${field}"]`).forEach((el) => {
+          el.textContent = value;
+        });
+      };
+      const signed = (v: number) => (v > 0 ? '+' : '') + v.toFixed(2) + '°';
+      set('phase', String(history.phase_name[i]).replace(/_/g, ' '));
+      set('illuminated', (history.illuminated[i] * 100).toFixed(1) + '%');
+      set('phase_angle', history.phase_angle[i].toFixed(1) + '°');
+      set('distance', Math.round(history.distance_km[i]).toLocaleString('en-US') + ' km');
+      set('lib_lon', signed(history.libration_longitude[i]));
+      set('lib_lat', signed(history.libration_latitude[i]));
+    }
+
+    if (history && scrub) {
+      scrub.max = String(history.n_days - 1);
+      scrub.value = String(history.today_index);
+      applyDate(history.today_index);
+      scrub.addEventListener('input', () => applyDate(Number(scrub.value)));
+
+      document.getElementById('moon-today')?.addEventListener('click', () => {
+        scrub.value = String(history.today_index);
+        applyDate(history.today_index);
+      });
+
+      // A lunation in about six seconds. Only on request — nothing on this
+      // site animates unattended.
+      const playBtn = document.getElementById('moon-play') as HTMLButtonElement | null;
+      let timer: number | null = null;
+      playBtn?.addEventListener('click', () => {
+        if (timer !== null) {
+          clearInterval(timer);
+          timer = null;
+          playBtn.textContent = 'Run a month';
+          playBtn.setAttribute('aria-pressed', 'false');
+          return;
+        }
+        playBtn.textContent = 'Stop';
+        playBtn.setAttribute('aria-pressed', 'true');
+        let steps = 0;
+        timer = window.setInterval(() => {
+          const next = (Number(scrub.value) + 1) % history.n_days;
+          scrub.value = String(next);
+          applyDate(next);
+          if (++steps >= 30) {
+            clearInterval(timer!);
+            timer = null;
+            playBtn.textContent = 'Run a month';
+            playBtn.setAttribute('aria-pressed', 'false');
+          }
+        }, 190);
+      });
+    }
+
+    // One orchestrated moment: the Moon settling to its viewing angle.
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduced && !document.hidden) {
+      const start = performance.now();
+      const from = -0.55;
+      const frame = (now: number) => {
+        const t = Math.min((now - start) / 1400, 1);
+        const e = 1 - Math.pow(1 - t, 3);
+        azimuth = from * (1 - e);
+        applyCamera();
+        render();
+        if (t < 1) requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    }
+  }
+
+  if (host) mountMoon(host);
+</script>

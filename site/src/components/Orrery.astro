@@ -1,0 +1,456 @@
+---
+/**
+ * An interactive orrery: apparent geocentric ecliptic longitudes, drawn on the
+ * tropical zodiac wheel, with aspect geometry computed live as you scrub time.
+ *
+ * Every position comes from DE440s. Retrograde arcs are real apparent motion,
+ * not a lookup — which is why Mercury's three annual loops appear where they
+ * actually appear, and why Mars sits quiet through 2026.
+ *
+ * The aspect lines are the honest part of the astrology: an aspect is just two
+ * bodies at a particular angular separation, which is a fact. Whether it means
+ * anything is the question the study exists to answer, and this component takes
+ * no position on it.
+ */
+---
+
+<figure class="orrery">
+  <div class="orrery-frame">
+    <svg id="orrery-svg" viewBox="0 0 620 620" role="img"
+         aria-label="Zodiacal wheel showing planetary ecliptic longitudes with aspect lines between them.">
+    </svg>
+    <div class="orrery-side">
+      <p class="stamp"><span class="label">Date</span><output id="orrery-date">—</output></p>
+      <ul id="orrery-list" class="bodies"></ul>
+      <div class="aspects">
+        <span class="label">Aspects within orb</span>
+        <ul id="orrery-aspects"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <label class="scrub">
+      <span class="label">Scrub time</span>
+      <input type="range" id="orrery-scrub" min="0" max="100" value="50" step="1" />
+    </label>
+    <div class="buttons">
+      <button type="button" id="orrery-today">Today</button>
+      <button type="button" id="orrery-play" aria-pressed="false">Play</button>
+      <label class="orb">
+        <span class="label">Orb</span>
+        <select id="orrery-orb">
+          <option value="1">1°</option>
+          <option value="3" selected>3°</option>
+          <option value="6">6°</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <figcaption class="small muted">
+    Apparent geocentric ecliptic longitude from JPL DE440s. Ring order is
+    orbital, innermost first. A body is drawn hollow while retrograde. The wheel
+    is the <em>tropical</em> zodiac, fixed to the vernal equinox — it has drifted
+    roughly 24° from the constellations it borrows its names from, owing to
+    precession.
+  </figcaption>
+</figure>
+
+<style>
+  .orrery { margin: 1.5rem 0 0; }
+  .orrery-frame {
+    display: grid;
+    grid-template-columns: minmax(300px, 1.35fr) minmax(210px, 0.65fr);
+    gap: 1.5rem 2rem;
+    align-items: start;
+  }
+  @media (max-width: 780px) { .orrery-frame { grid-template-columns: 1fr; } }
+
+  #orrery-svg { width: 100%; height: auto; display: block; }
+
+  .label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--type-muted);
+    margin-bottom: 0.3rem;
+  }
+  .stamp output {
+    font-family: var(--mono);
+    font-size: 1.02rem;
+    color: var(--type);
+  }
+  .stamp { margin: 0 0 1rem; }
+
+  .bodies { list-style: none; margin: 0 0 1.2rem; padding: 0; }
+  .bodies li {
+    display: grid;
+    grid-template-columns: 1.4rem 1fr auto;
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.24rem 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.86rem;
+    max-width: none;
+  }
+  .bodies .glyph { font-size: 1rem; line-height: 1; }
+  .bodies .pos {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    color: var(--type-muted);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+  .bodies .name { color: var(--type); }
+  .bodies li.retro .pos { color: var(--fault); }
+  .bodies li.retro .name::after {
+    content: ' ℞';
+    color: var(--fault);
+  }
+
+  .aspects ul { list-style: none; margin: 0; padding: 0; }
+  .aspects li {
+    font-size: 0.82rem;
+    padding: 0.2rem 0;
+    color: var(--type-muted);
+    max-width: none;
+  }
+  .aspects .none { font-style: italic; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.6rem;
+    align-items: end;
+    margin: 1.4rem 0 0.8rem;
+  }
+  .scrub { flex: 1 1 320px; }
+  .scrub input { width: 100%; accent-color: var(--amber); }
+  .buttons { display: flex; gap: 0.7rem; align-items: end; }
+  button {
+    font: inherit;
+    font-size: 0.86rem;
+    background: transparent;
+    color: var(--type);
+    border: 1px solid var(--rule);
+    padding: 0.36rem 0.85rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--amber); color: var(--amber); }
+  button[aria-pressed='true'] { border-color: var(--amber); color: var(--amber); }
+  select {
+    font: inherit;
+    font-size: 0.86rem;
+    background: var(--panel);
+    color: var(--type);
+    border: 1px solid var(--rule);
+    padding: 0.32rem 0.5rem;
+  }
+</style>
+
+<script>
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // U+FE0E is the text variation selector. Without it, browsers render several
+  // of these — Mars, Venus, and every zodiac sign — with emoji presentation,
+  // which turns a precise astronomical chart into a row of coloured stickers.
+  const TEXT = '\uFE0E';
+  const GLYPH: Record<string, string> = {
+    sun: '☉' + TEXT, moon: '☾' + TEXT, mercury: '☿' + TEXT,
+    venus: '♀' + TEXT, mars: '♂' + TEXT, jupiter: '♃' + TEXT,
+    saturn: '♄' + TEXT, uranus: '♅' + TEXT, neptune: '♆' + TEXT,
+    pluto: '♇' + TEXT,
+  };
+  // Ring order: Sun and Moon inside, then the planets outward.
+  const ORDER = ['moon', 'sun', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+
+  const ASPECTS: [string, number, string][] = [
+    ['conjunction', 0, '☌\uFE0E'],
+    ['sextile', 60, '⚹\uFE0E'],
+    ['square', 90, '□\uFE0E'],
+    ['trine', 120, '△\uFE0E'],
+    ['opposition', 180, '☍\uFE0E'],
+  ];
+
+  const SIGN_GLYPH = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
+    .map((s) => s + TEXT);
+
+  const CX = 310, CY = 310;
+  const R_OUTER = 292, R_SIGNS = 268, R_INNER = 96;
+
+  const el = <T extends Element>(id: string) => document.getElementById(id) as unknown as T;
+
+  function mk(name: string, attrs: Record<string, string | number>) {
+    const node = document.createElementNS(SVG_NS, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+    return node;
+  }
+
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /**
+   * Trace a stroke in by animating its dash offset from its own length to zero.
+   *
+   * Only ever on first paint. Re-running it while the reader scrubs would turn
+   * a precise instrument into a light show, and would make the wheel unreadable
+   * at exactly the moment they are trying to read it.
+   */
+  /**
+   * Trigger a transition that has been staged on an element.
+   *
+   * requestAnimationFrame does not fire while the document is hidden, so a
+   * reveal that depends on it alone leaves the whole chart stuck in its
+   * staged, invisible state in any background tab — permanently, because
+   * nothing retries once the reader switches to it. The rAF pair gives a clean
+   * start when the page is visible; the timeout guarantees the reveal happens
+   * regardless. An animation is allowed to be skipped. Content is not.
+   */
+  function reveal(apply: () => void) {
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      apply();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(once));
+    setTimeout(once, 60);
+  }
+
+  function traceIn(el: SVGElement, delay: number, duration = 900) {
+    // Never stage a hidden state we might not be able to undo.
+    if (REDUCED || document.hidden) return;
+    let length: number;
+    if (el.tagName === 'circle') {
+      length = 2 * Math.PI * Number(el.getAttribute('r'));
+    } else if (el.tagName === 'line') {
+      length = Math.hypot(
+        Number(el.getAttribute('x2')) - Number(el.getAttribute('x1')),
+        Number(el.getAttribute('y2')) - Number(el.getAttribute('y1'))
+      );
+    } else {
+      return;
+    }
+    el.style.strokeDasharray = String(length);
+    el.style.strokeDashoffset = String(length);
+    el.style.transition =
+      `stroke-dashoffset ${duration}ms cubic-bezier(.22,.61,.36,1) ${delay}ms`;
+    reveal(() => { el.style.strokeDashoffset = '0'; });
+  }
+
+  function fadeIn(el: SVGElement, delay: number, duration = 520) {
+    if (REDUCED || document.hidden) return;
+    el.style.opacity = '0';
+    el.style.transition = `opacity ${duration}ms ease ${delay}ms`;
+    reveal(() => { el.style.opacity = '1'; });
+  }
+
+  // Longitude 0 (Aries) at the left, increasing anticlockwise — the
+  // conventional orientation for a chart wheel.
+  const pos = (lon: number, r: number) => {
+    const a = (180 - lon) * (Math.PI / 180);
+    return [CX + r * Math.cos(a), CY - r * Math.sin(a)] as const;
+  };
+
+  async function main() {
+    const svg = el<SVGSVGElement>('orrery-svg');
+    if (!svg) return;
+
+    let payload: any;
+    try {
+      payload = (await fetch('/data/orrery.json').then((r) => r.json())).orrery;
+    } catch {
+      svg.innerHTML = '';
+      return;
+    }
+
+    const start = new Date(payload.start + 'T00:00:00Z');
+    const n = payload.n_days;
+    const bodies = payload.bodies;
+    const present = ORDER.filter((b) => bodies[b]);
+
+    // --- static chrome: rings, sign divisions, glyphs -------------------
+    const chrome = mk('g', {});
+    // The wheel draws itself in: rings first, then the sign divisions sweeping
+    // round, then the ticks. One orchestrated moment on load, and nothing
+    // repeats it.
+    [R_OUTER, R_SIGNS, R_INNER].forEach((r, i) => {
+      const ring = mk('circle', { cx: CX, cy: CY, r, fill: 'none', stroke: 'var(--rule)' });
+      traceIn(ring as SVGElement, i * 130, 1100);
+      chrome.appendChild(ring);
+    });
+
+    for (let s = 0; s < 12; s++) {
+      const lon = s * 30;
+      const [x1, y1] = pos(lon, R_SIGNS);
+      const [x2, y2] = pos(lon, R_OUTER);
+      const div = mk('line', { x1, y1, x2, y2, stroke: 'var(--rule)' });
+      traceIn(div as SVGElement, 380 + s * 42, 420);
+      chrome.appendChild(div);
+
+      const [gx, gy] = pos(lon + 15, (R_SIGNS + R_OUTER) / 2);
+      const g = mk('text', {
+        x: gx, y: gy, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+        fill: 'var(--type-muted)', 'font-size': 15,
+      });
+      g.textContent = SIGN_GLYPH[s];
+      fadeIn(g as SVGElement, 560 + s * 42);
+      chrome.appendChild(g);
+    }
+    // 10-degree ticks
+    for (let d = 0; d < 360; d += 10) {
+      const [x1, y1] = pos(d, R_SIGNS);
+      const [x2, y2] = pos(d, R_SIGNS - (d % 30 === 0 ? 12 : 6));
+      const tick = mk('line', { x1, y1, x2, y2, stroke: 'var(--rule)' });
+      fadeIn(tick as SVGElement, 700 + (d / 10) * 8, 380);
+      chrome.appendChild(tick);
+    }
+    svg.appendChild(chrome);
+
+    const aspectLayer = mk('g', {});
+    const bodyLayer = mk('g', {});
+    svg.appendChild(aspectLayer);
+    svg.appendChild(bodyLayer);
+
+    const radiusFor = (i: number) =>
+      R_INNER + 18 + (i * (R_SIGNS - R_INNER - 40)) / Math.max(present.length - 1, 1);
+
+    const dateOut = el<HTMLOutputElement>('orrery-date');
+    const list = el<HTMLUListElement>('orrery-list');
+    const aspectList = el<HTMLUListElement>('orrery-aspects');
+    const scrub = el<HTMLInputElement>('orrery-scrub');
+    const orbSelect = el<HTMLSelectElement>('orrery-orb');
+    scrub.max = String(n - 1);
+    scrub.value = String(payload.today_index);
+
+    const signOf = (lon: number) =>
+      `${SIGN_GLYPH[Math.floor(lon / 30) % 12]} ${String(Math.floor(lon % 30)).padStart(2, '0')}°`;
+
+    let firstPaint = true;
+
+    function draw(index: number) {
+      const orb = Number(orbSelect.value);
+      // Stagger only on the opening paint. Scrubbing must feel immediate.
+      const intro = firstPaint;
+      aspectLayer.innerHTML = '';
+      bodyLayer.innerHTML = '';
+      list.innerHTML = '';
+
+      const when = new Date(start.getTime() + index * 86400000);
+      dateOut.textContent = when.toISOString().slice(0, 10);
+
+      const lons: Record<string, number> = {};
+      const retro: Record<string, boolean> = {};
+      present.forEach((b) => {
+        lons[b] = bodies[b].longitude[index];
+        retro[b] = bodies[b].retrograde[index];
+      });
+
+      // Aspect chords first, so bodies draw over them.
+      const found: string[] = [];
+      const planets = present.filter((b) => b !== 'sun' && b !== 'moon');
+      for (let i = 0; i < planets.length; i++) {
+        for (let j = i + 1; j < planets.length; j++) {
+          const a = planets[i], b = planets[j];
+          const sep = Math.abs(((lons[a] - lons[b] + 180) % 360) - 180);
+          for (const [name, exact, glyph] of ASPECTS) {
+            if (Math.abs(sep - exact) > orb) continue;
+            const ri = radiusFor(present.indexOf(a));
+            const rj = radiusFor(present.indexOf(b));
+            const [x1, y1] = pos(lons[a], ri);
+            const [x2, y2] = pos(lons[b], rj);
+            const tight = 1 - Math.abs(sep - exact) / orb;
+            const chord = mk('line', {
+              x1, y1, x2, y2,
+              stroke: name === 'square' || name === 'opposition' ? 'var(--fault)' : 'var(--amber)',
+              'stroke-width': (0.5 + tight * 1.5).toFixed(2),
+              'stroke-opacity': (0.2 + tight * 0.55).toFixed(2),
+            });
+            // Aspects draw last, after the wheel they sit inside.
+            if (intro) traceIn(chord as SVGElement, 1500 + found.length * 110, 760);
+            aspectLayer.appendChild(chord);
+            found.push(
+              `${GLYPH[a]} ${glyph} ${GLYPH[b]} &nbsp;<span class="pos">${name}, ${sep.toFixed(1)}°</span>`
+            );
+          }
+        }
+      }
+
+      present.forEach((body, i) => {
+        const r = radiusFor(i);
+        const lon = lons[body];
+        const [x, y] = pos(lon, r);
+
+        // Faint orbit ring for this body.
+        const orbit = mk('circle', {
+          cx: CX, cy: CY, r, fill: 'none',
+          stroke: 'var(--rule)', 'stroke-opacity': 0.45,
+        });
+        if (intro) traceIn(orbit as SVGElement, 900 + i * 90, 950);
+        bodyLayer.appendChild(orbit);
+
+        const disc = mk('circle', {
+          cx: x, cy: y, r: 11,
+          fill: retro[body] ? 'transparent' : 'var(--void)',
+          stroke: retro[body] ? 'var(--fault)' : 'var(--rule)',
+        });
+        const t = mk('text', {
+          x, y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+          'font-size': 14,
+          fill: retro[body] ? 'var(--fault)' : 'var(--amber)',
+        });
+        t.textContent = GLYPH[body];
+        if (intro) {
+          fadeIn(disc as SVGElement, 1250 + i * 90);
+          fadeIn(t as SVGElement, 1250 + i * 90);
+        }
+        bodyLayer.appendChild(disc);
+        bodyLayer.appendChild(t);
+
+        const li = document.createElement('li');
+        li.className = retro[body] ? 'retro' : '';
+        li.innerHTML =
+          `<span class="glyph">${GLYPH[body]}</span>` +
+          `<span class="name">${body[0].toUpperCase() + body.slice(1)}</span>` +
+          `<span class="pos">${signOf(lon)}</span>`;
+        list.appendChild(li);
+      });
+
+      aspectList.innerHTML = found.length
+        ? found.map((f) => `<li>${f}</li>`).join('')
+        : '<li class="none">none within orb</li>';
+
+      firstPaint = false;
+    }
+
+    draw(payload.today_index);
+    scrub.addEventListener('input', () => draw(Number(scrub.value)));
+    orbSelect.addEventListener('change', () => draw(Number(scrub.value)));
+    el<HTMLButtonElement>('orrery-today').addEventListener('click', () => {
+      scrub.value = String(payload.today_index);
+      draw(payload.today_index);
+    });
+
+    // Play only on request — nothing on this site animates unattended.
+    let timer: number | null = null;
+    const play = el<HTMLButtonElement>('orrery-play');
+    play.addEventListener('click', () => {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+        play.textContent = 'Play';
+        play.setAttribute('aria-pressed', 'false');
+        return;
+      }
+      play.textContent = 'Pause';
+      play.setAttribute('aria-pressed', 'true');
+      timer = window.setInterval(() => {
+        const next = (Number(scrub.value) + 1) % n;
+        scrub.value = String(next);
+        draw(next);
+      }, 60);
+    });
+  }
+
+  main();
+</script>

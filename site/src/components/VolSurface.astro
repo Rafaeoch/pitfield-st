@@ -1,0 +1,400 @@
+---
+/**
+ * The fitted volatility surface, rendered from the published SVI parameters.
+ *
+ * The mesh is built only where the expiry actually had quotable contracts, so
+ * the surface has a ragged edge: short maturities are narrow, long ones wide.
+ * That edge is the data support, not a styling choice. Drawing a rectangular
+ * surface here would mean rendering extrapolation as though it were quotes.
+ */
+interface Props {
+  height?: string;
+  src?: string;
+  id?: string;
+}
+const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.props;
+---
+
+<figure class="surface-figure" style={`--surface-height: ${height}`}>
+  <div
+    class="surface-canvas"
+    id={id}
+    data-src={src}
+    role="img"
+    tabindex="0"
+    aria-label="Three-dimensional plot of the fitted implied volatility surface. Drag or use arrow keys to rotate."
+  >
+    <p class="surface-loading">Loading surface…</p>
+  </div>
+
+  <figcaption>
+    <span class="axis-key"><b>x</b> log-moneyness ln(K/F)</span>
+    <span class="axis-key"><b>y</b> implied volatility</span>
+    <span class="axis-key"><b>z</b> maturity, √T spacing</span>
+    <span class="hint">Drag to rotate, scroll to zoom, arrow keys when focused</span>
+  </figcaption>
+</figure>
+
+<style>
+  .surface-figure { margin: 0; }
+  .surface-canvas {
+    position: relative;
+    height: var(--surface-height);
+    min-height: 320px;
+    width: 100%;
+    background: linear-gradient(180deg, #0d131c 0%, var(--void) 78%);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    cursor: grab;
+    touch-action: none;
+  }
+  .surface-canvas:active { cursor: grabbing; }
+  .surface-canvas canvas { display: block; }
+
+  .surface-loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    color: var(--type-muted);
+    font-size: 0.9rem;
+  }
+
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    padding: 0.7rem clamp(1rem, 4vw, 3rem);
+    font-size: 0.82rem;
+    color: var(--type-muted);
+  }
+  .axis-key b {
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--amber);
+    margin-right: 0.35rem;
+  }
+  .hint { margin-left: auto; }
+  @media (max-width: 720px) { .hint { margin-left: 0; } }
+</style>
+
+<script>
+  import * as THREE from 'three';
+
+  // Magma, sampled. The UI accent (#F0A860) sits near t = 0.88 on this ramp,
+  // which is what makes the accent the data colormap rather than a brand pick.
+  const MAGMA: [number, number, number][] = [
+    [0.000, 0.001, 0.016], [0.051, 0.031, 0.161], [0.157, 0.043, 0.412],
+    [0.282, 0.043, 0.431], [0.416, 0.090, 0.433], [0.549, 0.161, 0.506],
+    [0.714, 0.212, 0.475], [0.871, 0.288, 0.408], [0.965, 0.435, 0.361],
+    [0.996, 0.624, 0.427], [0.988, 0.992, 0.749],
+  ];
+
+  function magma(t: number): THREE.Color {
+    // Remap into the legible upper range: pure magma's black end vanishes
+    // against a dark ground.
+    const u = Math.min(Math.max(0.25 + 0.7 * t, 0), 1) * (MAGMA.length - 1);
+    const i = Math.min(Math.floor(u), MAGMA.length - 2);
+    const f = u - i;
+    const a = MAGMA[i];
+    const b = MAGMA[i + 1];
+    return new THREE.Color(
+      a[0] + (b[0] - a[0]) * f,
+      a[1] + (b[1] - a[1]) * f,
+      a[2] + (b[2] - a[2]) * f
+    );
+  }
+
+  const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+
+  async function mount(host: HTMLElement) {
+    const src = host.dataset.src!;
+    let payload: any;
+    try {
+      payload = await fetch(src).then((r) => r.json());
+    } catch {
+      host.innerHTML = '<p class="surface-loading">Surface data unavailable.</p>';
+      return;
+    }
+
+    const rows = [...payload.surface].sort((a: any, b: any) => a.T - b.T);
+    if (!rows.length) {
+      host.innerHTML = '<p class="surface-loading">No fitted expiries for this day.</p>';
+      return;
+    }
+
+    // Evaluate the published SVI parameters directly rather than resampling the
+    // coarse grid in the payload. This is the same fitted curve at higher
+    // resolution — not interpolation and not extrapolation — and each expiry is
+    // still clipped to the strike range that actually had quotes, so the mesh
+    // keeps its ragged edge.
+    const COLS = 121;
+    const kLo = Math.min(...rows.map((r: any) => r.k_min));
+    const kHi = Math.max(...rows.map((r: any) => r.k_max));
+    const kGrid: number[] = Array.from(
+      { length: COLS },
+      (_, i) => kLo + ((kHi - kLo) * i) / (COLS - 1)
+    );
+    const cols = COLS;
+
+    const totalVariance = (p: any, k: number) => {
+      const x = k - p.m;
+      return p.a + p.b * (p.rho * x + Math.sqrt(x * x + p.sigma * p.sigma));
+    };
+
+    const grid: (number | null)[][] = rows.map((r: any) =>
+      kGrid.map((k) => {
+        if (k < r.k_min || k > r.k_max) return null;
+        const w = totalVariance(r.svi, k);
+        return w > 0 ? Math.sqrt(w / r.T) : null;
+      })
+    );
+
+    let ivMin = Infinity;
+    let ivMax = -Infinity;
+    for (const row of grid) {
+      for (const v of row) {
+        if (v == null) continue;
+        if (v < ivMin) ivMin = v;
+        if (v > ivMax) ivMax = v;
+      }
+    }
+    const ivSpan = ivMax - ivMin || 1;
+
+    // Maturity is spaced on sqrt(T): linear spacing crushes the short end,
+    // where the surface is most interesting.
+    const yOf = (t: number) => Math.sqrt(t);
+    const yMin = yOf(rows[0].T);
+    const yMax = yOf(rows[rows.length - 1].T);
+    const ySpan = yMax - yMin || 1;
+
+    const kMin = kGrid[0];
+    const kMax = kGrid[cols - 1];
+    const kSpan = kMax - kMin || 1;
+
+    const W = 10, D = 7.4, H = 3.1;
+
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const heights: number[] = [];
+    for (let r = 0; r < rows.length; r++) {
+      for (let c = 0; c < cols; c++) {
+        const iv = grid[r][c];
+        const x = ((kGrid[c] - kMin) / kSpan - 0.5) * W;
+        const z = ((yOf(rows[r].T) - yMin) / ySpan - 0.5) * D;
+        const norm = iv == null ? 0 : (iv - ivMin) / ivSpan;
+        const y = iv == null ? 0 : norm * H;
+        positions.push(x, y, z);
+        heights.push(y);
+        const col = magma(norm);
+        colors.push(col.r, col.g, col.b);
+      }
+    }
+
+    // Faces only where all four corners have data.
+    const indices: number[] = [];
+    for (let r = 0; r < rows.length - 1; r++) {
+      for (let c = 0; c < cols - 1; c++) {
+        if (
+          grid[r][c] == null || grid[r][c + 1] == null ||
+          grid[r + 1][c] == null || grid[r + 1][c + 1] == null
+        ) continue;
+        const a = r * cols + c;
+        const b = r * cols + c + 1;
+        const d = (r + 1) * cols + c;
+        const e = (r + 1) * cols + c + 1;
+        indices.push(a, d, b, b, d, e);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    const posAttr = new THREE.Float32BufferAttribute(positions, 3);
+    geometry.setAttribute('position', posAttr);
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    const scene = new THREE.Scene();
+    const mesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        roughness: 0.62,
+        metalness: 0.04,
+        flatShading: false,
+      })
+    );
+    scene.add(mesh);
+
+    // One rib per fitted expiry, drawn across that expiry's own quoted range.
+    // These carry the structure: the surface is a fan of smiles that get wider
+    // with maturity, because a one-week option five percent out of the money is
+    // genuinely worth pennies and stops being quoted. Without the ribs the
+    // stepped edge reads as a rendering fault rather than as the data.
+    const contourGroup = new THREE.Group();
+    for (let r = 0; r < rows.length; r++) {
+      const pts: THREE.Vector3[] = [];
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c] == null) continue;
+        const i = (r * cols + c) * 3;
+        pts.push(new THREE.Vector3(positions[i], positions[i + 1] + 0.02, positions[i + 2]));
+      }
+      if (pts.length > 1) {
+        contourGroup.add(
+          new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(pts),
+            new THREE.LineBasicMaterial({
+              color: 0xe6e3db,
+              transparent: true,
+              opacity: 0.5,
+            })
+          )
+        );
+      }
+    }
+    scene.add(contourGroup);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+    const key = new THREE.DirectionalLight(0xffe6c4, 1.05);
+    key.position.set(6, 9, 5);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0x6ea0d0, 0.4);
+    rim.position.set(-7, 3, -6);
+    scene.add(rim);
+
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    host.innerHTML = '';
+    host.appendChild(renderer.domElement);
+
+    let azimuth = -0.74, polar = 0.95, radius = 11.0;
+    const applyCamera = () => {
+      camera.position.set(
+        radius * Math.sin(polar) * Math.sin(azimuth),
+        radius * Math.cos(polar),
+        radius * Math.sin(polar) * Math.cos(azimuth)
+      );
+      camera.lookAt(0, 0.35, 0);
+    };
+
+    const render = () => renderer.render(scene, camera);
+
+    const resize = () => {
+      const w = host.clientWidth;
+      const h = host.clientHeight;
+      // setSize must update the element's CSS size too. Passing false leaves
+      // the canvas at its intrinsic buffer size (width x devicePixelRatio),
+      // which overflows the container on any HiDPI display.
+      renderer.setSize(w, h);
+      camera.aspect = w / Math.max(h, 1);
+      camera.updateProjectionMatrix();
+      render();
+    };
+    resize();
+    new ResizeObserver(resize).observe(host);
+
+    // --- interaction ----------------------------------------------------
+    let dragging = false, lastX = 0, lastY = 0;
+    host.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      host.setPointerCapture(e.pointerId);
+    });
+    host.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      azimuth -= (e.clientX - lastX) * 0.006;
+      polar = Math.min(Math.max(polar - (e.clientY - lastY) * 0.005, 0.16), 1.52);
+      lastX = e.clientX;
+      lastY = e.clientY;
+      applyCamera();
+    });
+    const stop = (e: PointerEvent) => {
+      dragging = false;
+      try { host.releasePointerCapture(e.pointerId); } catch {}
+    };
+    host.addEventListener('pointerup', stop);
+    host.addEventListener('pointercancel', stop);
+    host.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      radius = Math.min(Math.max(radius * Math.exp(e.deltaY * 0.0012), 8), 30);
+      applyCamera();
+    }, { passive: false });
+
+    // Keyboard parity with the pointer, so the plot is operable without a mouse.
+    host.addEventListener('keydown', (e) => {
+      const step = 0.09;
+      if (e.key === 'ArrowLeft') azimuth += step;
+      else if (e.key === 'ArrowRight') azimuth -= step;
+      else if (e.key === 'ArrowUp') polar = Math.max(polar - step, 0.16);
+      else if (e.key === 'ArrowDown') polar = Math.min(polar + step, 1.52);
+      else if (e.key === '+' || e.key === '=') radius = Math.max(radius - 0.8, 8);
+      else if (e.key === '-') radius = Math.min(radius + 0.8, 30);
+      else return;
+      e.preventDefault();
+      applyCamera();
+    });
+
+    // Nothing animates unless a person acts on it, so every interaction
+    // redraws explicitly rather than running a permanent render loop.
+    host.addEventListener('pointermove', render);
+    host.addEventListener('keydown', render);
+    host.addEventListener('wheel', render);
+
+    const targetAz = azimuth;
+    const setProgress = (e: number) => {
+      const arr = posAttr.array as Float32Array;
+      for (let i = 0; i < heights.length; i++) arr[i * 3 + 1] = heights[i] * e;
+      posAttr.needsUpdate = true;
+      geometry.computeVertexNormals();
+      contourGroup.visible = e > 0.55;
+      applyCamera();
+      render();
+    };
+
+    // Draw the finished surface immediately. requestAnimationFrame does not
+    // fire while the document is hidden, so a page opened in a background tab
+    // would otherwise show an empty canvas even after the reader switches to
+    // it. Correctness first; the animation is decoration on top.
+    const settled = () => {
+      azimuth = targetAz;
+      setProgress(1);
+    };
+    settled();
+
+    // --- the one orchestrated moment: the surface settling into place ----
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function runSettleAnimation() {
+      const DURATION = 1150;
+      const start = performance.now();
+      const startAz = targetAz - 0.5;
+
+      function frame(now: number) {
+        const t = Math.min((now - start) / DURATION, 1);
+        const e = easeOut(t);
+        azimuth = startAz + (targetAz - startAz) * e;
+        setProgress(e);
+        if (t < 1) requestAnimationFrame(frame);
+        else settled();
+      }
+      requestAnimationFrame(frame);
+    }
+
+    if (!reduced) {
+      if (!document.hidden) runSettleAnimation();
+      else {
+        document.addEventListener(
+          'visibilitychange',
+          () => { if (!document.hidden) runSettleAnimation(); },
+          { once: true }
+        );
+      }
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>('.surface-canvas').forEach(mount);
+</script>

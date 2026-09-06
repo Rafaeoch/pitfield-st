@@ -1,0 +1,166 @@
+---
+import Base from '../../layouts/Base.astro';
+import MoonGlobe from '../../components/MoonGlobe.astro';
+import fs from 'node:fs';
+import path from 'node:path';
+
+let celestial: any = null;
+try {
+  celestial = JSON.parse(
+    fs.readFileSync(path.resolve('public/data/moon.json'), 'utf8')
+  );
+} catch { /* rendered without live values */ }
+
+const m = celestial?.moon ?? {};
+
+const fmtStamp = (s: string | null | undefined) => {
+  if (!s) return '—';
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC',
+    }).format(new Date(s + ':00:00Z')) + ' UTC';
+  } catch { return s; }
+};
+
+const phaseLabel = (m.phase_name ?? '').replace(/_/g, ' ');
+const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-US'));
+---
+
+<Base
+  title="The Moon"
+  description="The Moon rendered from real ephemeris geometry, and the pre-registered test of lunar phase against equity returns."
+  wide
+>
+  <MoonGlobe height="60vh" />
+
+  <div class="page">
+    <header class="head">
+      <h1>The Moon</h1>
+      <p class="lede">
+        Rendered from JPL DE440s. The terminator is not drawn — the light sits
+        along the true Moon-to-Sun vector and the camera along the true
+        Moon-to-Earth vector, so the phase is a consequence of the geometry
+        rather than a parameter. Libration is applied as a real rotation, which
+        is why the limb detail shifts over a month. The surface is NASA LROC
+        imagery over the LOLA elevation model.
+      </p>
+    </header>
+
+    <section class="readout" aria-label="Lunar state for the selected date">
+      <div><dt>Phase</dt><dd data-moon="phase">{phaseLabel || '—'}</dd></div>
+      <div><dt>Illuminated</dt><dd class="num" data-moon="illuminated">{m.illuminated != null ? (m.illuminated * 100).toFixed(1) + '%' : '—'}</dd></div>
+      <div><dt>Phase angle</dt><dd class="num" data-moon="phase_angle">{m.phase_angle != null ? m.phase_angle.toFixed(1) + '°' : '—'}</dd></div>
+      <div><dt>Distance</dt><dd class="num" data-moon="distance">{km(m.distance_km)} km</dd></div>
+      <div><dt>Libration, longitude</dt><dd class="num" data-moon="lib_lon">{m.libration_longitude != null ? (m.libration_longitude > 0 ? '+' : '') + m.libration_longitude.toFixed(2) + '°' : '—'}</dd></div>
+      <div><dt>Libration, latitude</dt><dd class="num" data-moon="lib_lat">{m.libration_latitude != null ? (m.libration_latitude > 0 ? '+' : '') + m.libration_latitude.toFixed(2) + '°' : '—'}</dd></div>
+      <div><dt>Next new moon</dt><dd class="num stamp">{fmtStamp(m.next_new_moon)}</dd></div>
+      <div><dt>Next full moon</dt><dd class="num stamp">{fmtStamp(m.next_full_moon)}</dd></div>
+    </section>
+
+    <p class="small muted note">
+      The six figures above follow the date slider. The next new and full moon
+      timestamps do not — they are always the next ones from today, since a
+      &ldquo;next full moon&rdquo; relative to a date two years ago is a fact
+      about the past dressed up as a forecast.
+    </p>
+
+    <p class="small muted note">
+      Distance sits at the {m.distance_percentile != null ? (m.distance_percentile * 100).toFixed(0) : '—'}th
+      percentile of the perigee–apogee range (356,500–406,700 km). The next new
+      and full moons are found by searching for the elongation crossing, not by
+      adding 29.53 days to the last one — that accumulates error.
+    </p>
+
+    <h2>Scrubbing back</h2>
+    <p>
+      The slider under the render moves through four years of daily geometry,
+      two back and two forward. Every frame is an ephemeris lookup rather than
+      an interpolation, so a date last spring shows the Moon as it actually
+      was — including the libration that had rolled a different stretch of the
+      limb into view. Run a month to watch a full lunation, and the wobble is
+      obvious: the face is not fixed.
+    </p>
+
+    <h2>Why this page exists</h2>
+    <p>
+      Lunar phase is a real, published hypothesis. Yuan and Zheng's
+      <em>Are Investors Moonstruck?</em> reported lower equity returns around the
+      full moon across a large sample of countries, and it is a paper this study
+      replicates against rather than dismisses. It sits in Tier 2 of the
+      hypothesis list: cyclical, well-documented, and with no mechanism anyone
+      has been able to state.
+    </p>
+    <p>
+      The rendering above is careful for the same reason the statistics below
+      will be. A page that got the astronomy wrong while claiming to test it
+      rigorously would be making the opposite point to the intended one.
+    </p>
+
+    <h2>The test</h2>
+    <div class="status">
+      <h3>Not yet run</h3>
+      <p>
+        The harness has not been built, and until it is there is nothing
+        honest to put here. What will appear, once it runs: returns bucketed by
+        the eight lunar phases, the effect size for each bucket against its
+        complement, a bootstrap confidence interval, the raw p-value, and the
+        same value after correction across the full family of roughly thirty
+        hypotheses.
+      </p>
+      <p>
+        Beside it, the number that usually matters more — the
+        <strong>minimum detectable effect</strong> at 80% power given the
+        observations that exist. If detecting a plausible lunar effect would
+        need more market history than has ever been recorded, that is the
+        finding, and it gets stated as plainly as any rejection would.
+      </p>
+      <p class="tiny muted">
+        Inputs are already live: 14,011 daily index observations from 1971, and
+        the phase for every one of those days computed from the same ephemeris
+        driving the render above.
+      </p>
+    </div>
+
+    <p class="closing">
+      If a result does appear above the corrected threshold, read
+      <a href="/moon/study/#bangladesh">the Bangladesh line</a> before believing it.
+    </p>
+  </div>
+</Base>
+
+<style>
+  .page {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 2.4rem clamp(1rem, 4vw, 3rem) 0;
+  }
+  .head { max-width: 62ch; }
+
+  .readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    border-top: 1px solid var(--rule);
+    margin: 2.2rem 0 0.9rem;
+  }
+  .readout > div {
+    padding: 0.85rem 1.2rem 0.95rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .readout dt { font-size: 0.79rem; color: var(--type-muted); margin-bottom: 0.22rem; }
+  .readout dd { margin: 0; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+  .readout dd.stamp { font-size: 0.92rem; }
+  .note { max-width: 62ch; }
+
+  .status {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--amber);
+    background: var(--panel);
+    padding: 1.1rem 1.3rem;
+    margin: 1.2rem 0 2rem;
+  }
+  .status h3 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--amber); }
+  .status p { margin: 0 0 0.7rem; }
+  .status p:last-child { margin-bottom: 0; }
+  .tiny { font-size: 0.85rem; }
+  .closing { margin-bottom: 3rem; }
+</style>

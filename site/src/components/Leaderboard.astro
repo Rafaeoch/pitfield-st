@@ -1,0 +1,113 @@
+---
+/**
+ * Every test, ranked by raw p-value, with a rule at the corrected threshold.
+ *
+ * Ranking by raw p is right *here* and only here. The hypothesis list is shown
+ * in order of prior plausibility, because that ordering is the intellectual
+ * content of the study. The leaderboard inverts it deliberately, to show what
+ * you would have concluded if you had sorted by significance and stopped.
+ */
+interface Props { results: any[]; tiers: Record<string, number> }
+const { results, tiers } = Astro.props;
+
+const ranked = [...results]
+  .filter((r) => r.p_value != null)
+  .sort((a, b) => a.p_value - b.p_value);
+
+// The line falls where Benjamini-Hochberg stops rejecting at q = 0.10.
+const lastSurvivor = ranked.reduce(
+  (acc, r, i) => (r.p_bh != null && r.p_bh < 0.1 ? i : acc), -1
+);
+
+const bp = (v: number | null) => (v == null ? '—' : (v * 10000).toFixed(1));
+const p = (v: number | null) =>
+  v == null ? '—' : v < 0.0001 ? '<0.0001' : v.toFixed(4);
+---
+
+<div class="table-scroll">
+  <table class="leaderboard">
+    <thead>
+      <tr>
+        <th class="n">#</th>
+        <th>Hypothesis</th>
+        <th>Bucket</th>
+        <th>Series</th>
+        <th class="n">Tier</th>
+        <th class="n">Effect (bp)</th>
+        <th class="n">95% CI</th>
+        <th class="n">N events</th>
+        <th class="n">Raw p</th>
+        <th class="n">BH</th>
+        <th class="n">Bonf.</th>
+        <th class="n">MDE (bp)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {ranked.map((r, i) => (
+        <>
+          <tr class={i <= lastSurvivor ? 'above' : ''}>
+            <td class="n muted">{i + 1}</td>
+            <td><a href={`#${r.hypothesis}`}>{r.hypothesis}</a></td>
+            <td class="muted">{r.bucket}</td>
+            <td class="num muted">{r.series}</td>
+            <td class="n muted">{tiers[r.hypothesis]}</td>
+            <td class="n">{bp(r.effect)}</td>
+            <td class="n muted ci">{bp(r.ci_low)} to {bp(r.ci_high)}</td>
+            <td class="n muted">{r.n_events?.toLocaleString()}</td>
+            <td class="n">{p(r.p_value)}</td>
+            <td class="n">{p(r.p_bh)}</td>
+            <td class="n">{p(r.p_bonferroni)}</td>
+            <td class="n muted">{bp(r.mde)}</td>
+          </tr>
+          {i === lastSurvivor && (
+            <tr class="bangladesh">
+              <td colspan="12">
+                <div class="rule" aria-hidden="true"></div>
+                <p class="line-label">The Bangladesh line</p>
+                <p class="footnote">
+                  In 1994, David Leinweber and Dave Krider searched a UN database
+                  of non-financial country statistics and found that butter
+                  production in Bangladesh explained 75% of S&amp;P 500 variation
+                  from 1981–1993. Adding US cheese production took it to 95%.
+                  Adding the sheep populations of Bangladesh and the US took it
+                  to 99%. It was published as <em>Stupid Data Miner Tricks</em>.
+                  Everything above this line is butter.
+                </p>
+              </td>
+            </tr>
+          )}
+        </>
+      ))}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .leaderboard { font-size: 0.83rem; }
+  .leaderboard td, .leaderboard th { padding: 0.34rem 0.85rem 0.34rem 0; white-space: nowrap; }
+  .leaderboard tr.above td { color: var(--type); }
+  .leaderboard .ci { font-size: 0.78rem; }
+  .leaderboard .muted { color: var(--type-muted); }
+
+  tr.bangladesh td { border-bottom: none; padding: 0; }
+  tr.bangladesh .rule {
+    height: 2px;
+    background: var(--amber);
+    margin: 0.7rem 0 0.6rem;
+  }
+  tr.bangladesh .line-label {
+    margin: 0 0 0.35rem;
+    font-size: 0.92rem;
+    color: var(--amber);
+    max-width: none;
+    white-space: normal;
+  }
+  tr.bangladesh .footnote {
+    margin: 0 0 1.1rem;
+    font-size: 0.85rem;
+    color: var(--type-muted);
+    max-width: 74ch;
+    white-space: normal;
+    line-height: 1.6;
+  }
+</style>

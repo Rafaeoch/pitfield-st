@@ -1,0 +1,365 @@
+---
+/**
+ * Base layout: palette, type, chrome.
+ *
+ * The palette is grounded in the subject rather than chosen. Observatories
+ * light their floors amber and red so astronomers keep dark adaptation, which
+ * is the literal reason the accent here is amber on a blue-shifted night
+ * ground. The accent itself is sampled from the magma ramp used for the
+ * volatility surface, so the interactive colour is the data colormap rather
+ * than a brand decision.
+ */
+interface Props {
+  title: string;
+  description?: string;
+  wide?: boolean;
+}
+const { title, description, wide = false } = Astro.props;
+import Mark from '../components/Mark.astro';
+const path = Astro.url.pathname;
+
+const nav = [
+  { href: '/', label: 'Today' },
+  { href: '/vol/SPY/', label: 'Surface' },
+  { href: '/quality/', label: 'Quality' },
+  { href: '/methodology/', label: 'Methodology' },
+  { href: '/about/', label: 'About' },
+];
+// Everything celestial lives under /moon/. One entry in the nav, behind the
+// divider, so the archive still reads as the primary work.
+const curiosities = [
+  { href: '/moon/', label: 'Moon' },
+  { href: '/reading/', label: 'Reading' },
+];
+
+const isActive = (href: string) =>
+  href === '/' ? path === '/' : path.startsWith(href);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title} — Pitfield St</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&family=Spectral:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="masthead">
+      <a class="wordmark" href="/">
+        <Mark size={32} />
+        <span class="wordmark-text">
+          <span class="wordmark-name">Pitfield St</span>
+          <span class="wordmark-sub">Derivatives data archive</span>
+        </span>
+      </a>
+      <nav aria-label="Primary">
+        <ul>
+          {nav.map((item) => (
+            <li>
+              <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+          <li class="nav-group" aria-hidden="true"></li>
+          {curiosities.map((item) => (
+            <li>
+              <a
+                class="nav-secondary"
+                href={item.href}
+                aria-current={isActive(item.href) ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </header>
+
+    <main id="main" class={wide ? 'wide' : ''}>
+      <slot />
+    </main>
+
+    <footer>
+      <p>
+        Pitfield St publishes computed derivatives data and the code that
+        produced it. It is not investment advice, and it makes no claim of
+        predictive value.
+      </p>
+    </footer>
+
+    <style is:global>
+      :root {
+        --void: #0b1017;
+        --panel: #141c26;
+        --rule: #26313d;
+        --type: #e6e3db;
+        --type-muted: #8a96a3;
+        --amber: #f0a860;
+        --fault: #c4553d;
+
+        --measure: 66ch;
+        --serif: 'Literata', Georgia, 'Times New Roman', serif;
+        --display: 'Spectral', Georgia, serif;
+        --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+        /* A modular scale rather than ad-hoc sizes. Everything on the site
+           lands on one of these, which is most of what separates a considered
+           page from an assembled one. */
+        --step--1: 0.855rem;
+        --step-0: 1rem;
+        --step-1: 1.16rem;
+        --step-2: clamp(1.24rem, 1.6vw, 1.42rem);
+        --step-3: clamp(1.6rem, 3.1vw, 2.35rem);
+      }
+
+      * { box-sizing: border-box; }
+
+      html { color-scheme: dark; }
+
+      body {
+        margin: 0;
+        /* A single, very slight vertical lift behind the page. Enough to stop
+           the ground reading as flat black; not enough to notice as a
+           gradient. */
+        background:
+          radial-gradient(120% 70% at 50% 0%, #0e141d 0%, var(--void) 58%)
+          no-repeat var(--void);
+        color: var(--type);
+        font-family: var(--serif);
+        font-size: 16px;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      .skip {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        background: var(--amber);
+        color: var(--void);
+        padding: 0.6rem 1rem;
+        z-index: 100;
+      }
+      .skip:focus { left: 0; }
+
+      /* Focus must be visible everywhere. Accessibility is an acceptance
+         criterion, not a finishing touch. */
+      a:focus-visible,
+      button:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: 2px;
+      }
+
+      .masthead {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.2rem 2.5rem;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.15rem clamp(1rem, 4vw, 3rem);
+        border-bottom: 1px solid var(--rule);
+      }
+
+      .wordmark {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        text-decoration: none;
+        color: var(--type);
+      }
+      .wordmark-text { display: block; }
+      /* Spectral for the name only. It steps back and lets the mark hold the
+         weight, where Literata's sturdiness competed with the fine dot work.
+         Body text stays Literata throughout. */
+      .wordmark-name {
+        display: block;
+        font-family: var(--display);
+        font-size: 1.16rem;
+        font-weight: 500;
+        letter-spacing: 0.004em;
+        line-height: 1.2;
+      }
+      .wordmark-sub {
+        display: block;
+        font-family: var(--display);
+        font-size: 0.76rem;
+        color: var(--type-muted);
+        letter-spacing: 0.028em;
+        margin-top: 0.12rem;
+      }
+
+      nav ul {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.4rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        font-size: 0.92rem;
+      }
+      nav a {
+        color: var(--type-muted);
+        text-decoration: none;
+        padding-bottom: 2px;
+        border-bottom: 1px solid transparent;
+      }
+      nav a:hover { color: var(--type); }
+      nav a[aria-current='page'] {
+        color: var(--amber);
+        border-bottom-color: var(--amber);
+      }
+      /* The celestial study sits behind a divider and reads as secondary. If a
+         visitor's first impression is astrology, the volatility work stops
+         reading as serious. */
+      .nav-group {
+        width: 1px;
+        height: 1.1em;
+        background: var(--rule);
+      }
+      .nav-secondary { font-style: italic; }
+
+      main {
+        max-width: 78rem;
+        margin: 0 auto;
+        padding: clamp(1.6rem, 4vw, 3.4rem) clamp(1rem, 4vw, 3rem) 5rem;
+      }
+      main.wide { max-width: none; padding-left: 0; padding-right: 0; }
+
+      h1, h2, h3 {
+        line-height: 1.18;
+        font-weight: 500;
+        letter-spacing: -0.014em;
+      }
+      /* Literata carries an optical-size axis. Using it is the difference
+         between a headline that was set and one that was merely scaled. */
+      h1 {
+        font-size: var(--step-3);
+        font-variation-settings: 'opsz' 60;
+        margin: 0 0 0.7rem;
+      }
+      h2 {
+        font-size: var(--step-2);
+        font-variation-settings: 'opsz' 28;
+        margin: 3.2rem 0 0.9rem;
+      }
+      h3 { font-size: var(--step-1); margin: 2rem 0 0.5rem; }
+
+      /* A short amber rule above each section heading. One quiet repeated
+         gesture, doing the work that a heavier hierarchy would need. */
+      main h2::before {
+        content: '';
+        display: block;
+        width: 26px;
+        height: 1px;
+        background: var(--amber);
+        opacity: 0.55;
+        margin-bottom: 0.85rem;
+      }
+
+      p, li { max-width: var(--measure); }
+      a { color: var(--amber); text-underline-offset: 3px; }
+
+      .lede {
+        font-size: var(--step-1);
+        line-height: 1.58;
+        color: var(--type);
+      }
+      .muted { color: var(--type-muted); }
+      .small { font-size: var(--step--1); }
+
+      /* Metadata lines: hairline separators, never middle dots. */
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.85rem;
+        max-width: none;
+        font-size: var(--step--1);
+        color: var(--type-muted);
+      }
+      .meta .sep { width: 1px; height: 0.9em; background: var(--rule); }
+
+      /* Monospace is for aligned numeric columns, where alignment is
+         functional. Not for labels, not for metadata. */
+      .num {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 0.9em;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      /* Hairline rules are functional on dense almanac tables. That
+         justification does not extend to the rest of the site. */
+      th, td {
+        text-align: left;
+        padding: 0.42rem 0.9rem 0.42rem 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      th {
+        font-weight: 500;
+        color: var(--type-muted);
+        font-size: 0.82rem;
+        white-space: nowrap;
+      }
+      td.n, th.n {
+        text-align: right;
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        padding-right: 0;
+      }
+      th.n { font-family: var(--serif); }
+      .table-scroll { overflow-x: auto; }
+
+      .fault { color: var(--fault); }
+      .ok { color: var(--amber); }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        padding: 1.1rem 1.25rem;
+      }
+
+      .banner {
+        border: 1px solid var(--fault);
+        border-left-width: 3px;
+        background: color-mix(in srgb, var(--fault) 9%, var(--void));
+        padding: 0.85rem 1.1rem;
+        font-size: 0.9rem;
+        margin: 0 0 2rem;
+      }
+      .banner strong { color: var(--fault); }
+      .banner p { max-width: none; margin: 0.35rem 0 0; }
+
+      footer {
+        border-top: 1px solid var(--rule);
+        padding: 1.6rem clamp(1rem, 4vw, 3rem) 3rem;
+      }
+      footer p { color: var(--type-muted); font-size: 0.86rem; margin: 0; }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.001ms !important;
+          transition-duration: 0.001ms !important;
+        }
+      }
+    </style>
+  </body>
+</html>

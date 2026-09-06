@@ -1,0 +1,35 @@
+---
+/**
+ * The house mark: Orion's Belt.
+ *
+ * Mintaka, Alnilam and Alnitak, in their true relative positions and sized by
+ * their real visual magnitudes — 2.23, 1.70 and 1.77, so Alnilam sits largest
+ * and Mintaka smallest. The positions are a gnomonic projection of the
+ * catalogue right ascensions and declinations, not three dots placed by eye.
+ * That is the same discipline the rest of the archive runs on, applied to the
+ * one piece of it a reader sees first.
+ *
+ * Three stars on a slant is also the most robust shape tested: it is the only
+ * candidate that stayed legible at 18px, because dots hold when strokes vanish.
+ */
+interface Props { size?: number; class?: string }
+const { size = 30, class: className = '' } = Astro.props;
+---
+<svg
+  class={`mark ${className}`}
+  width={size}
+  height={size}
+  viewBox="0 0 32 32"
+  aria-hidden="true"
+  focusable="false"
+>
+  <circle cx="26.0" cy="8.49" r="1.95" class="mark-star" />
+  <circle cx="16.38" cy="16.74" r="2.27" class="mark-star" />
+  <circle cx="6.0" cy="23.51" r="2.22" class="mark-star" />
+</svg>
+
+<style>
+  .mark { display: block; overflow: visible; }
+  .mark-star { fill: var(--amber); }
+  a:hover .mark-star { fill: var(--type); }
+</style>

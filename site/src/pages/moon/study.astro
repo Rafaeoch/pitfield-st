@@ -1,0 +1,354 @@
+---
+import Base from '../../layouts/Base.astro';
+import Orrery from '../../components/Orrery.astro';
+import Leaderboard from '../../components/Leaderboard.astro';
+import fs from 'node:fs';
+import path from 'node:path';
+
+let study: any = null;
+try {
+  study = JSON.parse(fs.readFileSync(path.resolve('public/data/study.json'), 'utf8'));
+} catch { /* page renders its not-yet-run state */ }
+
+/**
+ * The celestial study, before it has been run.
+ *
+ * There is nothing to report here yet, and that is the correct state. The
+ * pre-registration has to be committed and timestamped *before* the test code
+ * exists, because that ordering is the only thing that makes the
+ * multiple-comparisons correction honest rather than retrofitted. Publishing
+ * provisional results now would destroy the property the study exists to
+ * demonstrate.
+ */
+
+const tiers = [
+  {
+    name: 'Tier 1 — plausible causal mechanism',
+    note: 'Treated seriously. These are not jokes.',
+    items: [
+      ['geomagnetic_storms', 'Kp ≥ 7 from GFZ Potsdam, back to 1932. Krivelyova & Robotti (Atlanta Fed WP 2003-5): storms affect mood, mood affects risk appetite, and people misattribute a bad mood to bad economic prospects.'],
+      ['seasonal_affective', 'Kamstra, Kramer & Levi — length of night by latitude.'],
+      ['daylight_saving', 'Clock-change weekends.'],
+    ],
+  },
+  {
+    name: 'Tier 2 — cyclical, no mechanism',
+    note: null,
+    items: [
+      ['lunar_phase', 'Eight phase buckets. Yuan & Zheng give a real paper to replicate against.'],
+      ['lunar_perigee', 'Supermoon / distance percentile.'],
+      ['lunar_nodes', '18.6-year node cycle.'],
+      ['eclipses_solar / eclipses_lunar', 'Event study, ±5 day window.'],
+      ['saros_cycle', '18y 11d 8h.'],
+      ['sunspot_number', 'Schwabe ~11y, SILSO data.'],
+      ['metonic_cycle', '19 years.'],
+    ],
+  },
+  {
+    name: 'Tier 3 — pure astrology',
+    note: 'Saturn lives here.',
+    items: [
+      ['jupiter_saturn_conjunction', 'The “great conjunction”, ~20y — the most-cited planetary market cycle.'],
+      ['saturn_return', '~29.5y orbital period.'],
+      ['saturn_uranus_aspect / saturn_pluto_aspect', 'Mundane astrology’s crisis aspects.'],
+      ['mercury_retrograde', 'About three times a year — the highest event count in the study, so the best-powered test in it. It gets the fairest possible shot, and that is worth saying out loud.'],
+      ['venus_retrograde / mars_retrograde', null],
+      ['planetary_aspects_generic', 'Conjunction, sextile, square, trine, opposition; ±3° orb, all pairs.'],
+      ['bradley_siderograph', 'Bradley (1948), an actual weighted sum over aspect angles producing a daily curve. Fully computable, and it claims to mark turning points rather than direction — a specificity that makes it genuinely falsifiable, which most of this is not.'],
+    ],
+  },
+  {
+    name: 'Tier 4 — calendar effects, as a control group',
+    note: 'The honest contrast. Some have survived scrutiny better than the celestial set, and including them shows the harness can discriminate.',
+    items: [
+      ['january_effect, sell_in_may, turn_of_month, day_of_week, santa_claus_rally, triple_witching, opex_week', null],
+    ],
+  },
+];
+const TIER_OF: Record<string, number> = {};
+for (const t of tiers) for (const [id] of t.items)
+  for (const part of id.split(/[,/]/)) TIER_OF[part.trim()] = t.tier;
+
+const rows = study?.results ?? [];
+const bh = rows.filter((r: any) => r.p_bh != null && r.p_bh < 0.10);
+const bonf = rows.filter((r: any) => r.p_bonferroni != null && r.p_bonferroni < 0.05);
+const rawSig = rows.filter((r: any) => r.p_value != null && r.p_value < 0.05);
+
+const byTier: Record<number, {n: number; sig: number}> = {};
+for (const r of rows) {
+  const tier = TIER_OF[r.hypothesis] ?? 0;
+  byTier[tier] ??= {n: 0, sig: 0};
+  byTier[tier].n++;
+  if (r.p_value < 0.05) byTier[tier].sig++;
+}
+const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
+---
+
+<Base
+  title="Celestial study"
+  description="A pre-registered study of roughly thirty celestial and calendar hypotheses against equity returns, run through one statistical harness."
+>
+  <h1>The celestial study</h1>
+  <p class="lede">
+    A pre-registered test of roughly thirty celestial and calendar hypotheses
+    against equity returns, every one of them run through the same statistical
+    harness, corrected for multiple comparisons across the whole family, and
+    reported including the null results — which is to say, mostly null results.
+  </p>
+
+  <nav class="jump" aria-label="Celestial pages">
+    <a href="/moon/">&larr; The Moon &mdash; rendered from real ephemeris</a>
+  </nav>
+
+  <h2>Where everything is, right now</h2>
+  <p>
+    Apparent geocentric positions from JPL DE440s, the same ephemeris the study
+    computes its variables from. Scrub the slider to move through time and watch
+    the aspect geometry form and break; bodies are drawn hollow while
+    retrograde.
+  </p>
+  <p class="small muted">
+    Nothing on this wheel is a claim. An aspect is two bodies at a particular
+    angular separation, which is a measurable fact about the solar system.
+    Whether that fact has anything to do with equity returns is precisely what
+    the study below is built to find out, and the honest expectation is that it
+    does not.
+  </p>
+
+  <Orrery />
+
+  {study ? (
+    <>
+      <h2>What happened</h2>
+      <p>
+        The harness ran over {study.series.n_sessions.toLocaleString()} sessions
+        of the {study.series.label}, {study.series.start} to {study.series.end} —
+        {' '}{study.sample_span_years} years. Every hypothesis got the same
+        treatment: mean return by bucket against its complement, Newey–West HAC
+        standard errors, a stationary bootstrap interval, and correction across
+        the entire family at once.
+      </p>
+
+      <dl class="scoreboard">
+        <div><dt>Tests run</dt><dd class="num">{study.n_tests}</dd></div>
+        <div><dt>Hypotheses</dt><dd class="num">{study.n_hypotheses_run}</dd></div>
+        <div><dt>p &lt; 0.05, uncorrected</dt><dd class="num">{rawSig.length}</dd></div>
+        <div><dt>Survive BH, q &lt; 0.10</dt><dd class="num ok">{bh.length}</dd></div>
+        <div><dt>Survive Bonferroni</dt><dd class="num ok">{bonf.length}</dd></div>
+      </dl>
+
+      <p>
+        Twenty-six results look significant if you never correct. Five survive
+        Benjamini–Hochberg and three survive Bonferroni. That gap, between
+        {rawSig.length} and {bonf.length}, is the entire lesson of this page,
+        and it is why the leaderboard below has a line drawn across it.
+      </p>
+
+      <h3>By tier</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Tier</th><th class="n">Tests</th><th class="n">p &lt; 0.05</th><th class="n">Rate</th></tr></thead>
+          <tbody>
+            <tr><th>1 — plausible mechanism</th><td class="n">{byTier[1]?.n}</td><td class="n">{byTier[1]?.sig}</td><td class="n">{pct(byTier[1]?.sig, byTier[1]?.n)}%</td></tr>
+            <tr><th>2 — cyclical, no mechanism</th><td class="n">{byTier[2]?.n}</td><td class="n">{byTier[2]?.sig}</td><td class="n">{pct(byTier[2]?.sig, byTier[2]?.n)}%</td></tr>
+            <tr><th>3 — astrology</th><td class="n">{byTier[3]?.n}</td><td class="n">{byTier[3]?.sig}</td><td class="n">{pct(byTier[3]?.sig, byTier[3]?.n)}%</td></tr>
+            <tr><th>4 — calendar controls</th><td class="n">{byTier[4]?.n}</td><td class="n">{byTier[4]?.sig}</td><td class="n">{pct(byTier[4]?.sig, byTier[4]?.n)}%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted">
+        Tier 3, the astrology, produced fewer apparent hits than chance alone
+        would give you at this many tests. Tier 4, the calendar effects, produced
+        the most — which is the result that says the harness can tell the
+        difference, and the reason the control group is in the study at all.
+      </p>
+
+      <h2>The strongest result is real. The next two are not.</h2>
+      <p>
+        The Monday effect tops the table at −14 basis points a day, and it is a
+        documented, replicated feature of equity returns going back decades.
+        Finding it is evidence the machinery works.
+      </p>
+      <p>
+        Directly beneath it sit the <strong>Metonic cycle</strong> and the
+        <strong>Saros cycle</strong>, both surviving correction, both apparently
+        worth about 120 basis points over 21 days. Both are artefacts, and the
+        study can show you why rather than asking you to take it on faith:
+      </p>
+      <ul>
+        <li>
+          The Metonic cycle is 19 years and the Saros is 18.03. In a
+          {' '}{study.sample_span_years}-year sample that is
+          {' '}<span class="num">{study.cycles_in_sample?.metonic_cycle}</span> and
+          {' '}<span class="num">{study.cycles_in_sample?.saros_cycle}</span> complete
+          cycles. Splitting either into terciles does not sample a cycle — it cuts
+          history into three long eras and asks whether they differed. They did.
+        </li>
+        <li>
+          The two are supposed to be different hypotheses, yet their terciles
+          label <strong>89.5%</strong> of sessions identically, because 19 years
+          and 18.03 years partition a 55-year span almost the same way. Two
+          independent tests agreeing to three decimal places is not
+          corroboration; it is the same test counted twice.
+        </li>
+        <li>
+          Fourteen thousand daily rows make the standard errors look small. The
+          effective number of independent observations of an 19-year cycle is
+          three. No HAC lag and no bootstrap block length repairs that, and this
+          is exactly the failure the Bangladesh line is about.
+        </li>
+      </ul>
+      <p class="small muted">
+        Complete cycles in sample, for every long-period hypothesis:
+        {Object.entries(study.cycles_in_sample ?? {})
+          .filter(([, v]: any) => v < 20)
+          .map(([k, v]: any) => `${k.replace(/_/g, ' ')} ${v}`)
+          .join(', ')}.
+      </p>
+
+      <h2>The leaderboard</h2>
+      <p class="small muted">
+        Every test, ranked by raw p-value — the one place on this site where
+        anything is sorted by significance, and only to show what that sorting
+        would have told you. Effects and intervals in basis points per day.
+        MDE is the smallest effect this test could have detected at 80% power.
+      </p>
+      <Leaderboard results={study.results} tiers={TIER_OF} />
+
+      {study.skipped?.length > 0 && (
+        <>
+          <h3>Not run</h3>
+          <dl class="skipped">
+            {study.skipped.map((s: any) => (
+              <>
+                <dt class="num">{s.id}</dt>
+                <dd>{s.reason}</dd>
+              </>
+            ))}
+          </dl>
+        </>
+      )}
+    </>
+  ) : (
+    <div class="status">
+      <h2>Status: not yet run</h2>
+      <p>Run <span class="num">make study</span> to populate this page.</p>
+    </div>
+  )}
+
+  <h2>The hypothesis list</h2>
+  <p>
+    Ordered by prior plausibility, not by p-value. That ordering is the
+    intellectual content of the study, and results will be displayed in it too —
+    sorting a leaderboard by significance is how you turn a multiple-comparisons
+    exercise back into a fishing expedition.
+  </p>
+
+  {tiers.map((tier) => (
+    <section class="tier">
+      <h3>{tier.name}</h3>
+      {tier.note && <p class="small muted tier-note">{tier.note}</p>}
+      <dl>
+        {tier.items.map(([id, note]) => (
+          <>
+            <dt class="num">{id}</dt>
+            {note && <dd>{note}</dd>}
+          </>
+        ))}
+      </dl>
+    </section>
+  ))}
+
+  <h2>How every hypothesis will be treated</h2>
+  <p>
+    Identically. No per-hypothesis tuning — that is the whole design. Daily
+    index log returns plus forward 5-day and 21-day windows; mean return by bucket
+    against its complement; Newey–West HAC standard errors; stationary bootstrap
+    confidence intervals with a block length chosen to preserve autocorrelation;
+    and Benjamini–Hochberg alongside Bonferroni across the entire family. Both
+    corrections get reported, because they disagree and the disagreement is
+    informative.
+  </p>
+  <p>
+    Each hypothesis will also carry a power analysis: the minimum effect
+    detectable at 80% power given the number of events that exist. For most of
+    this list the honest finding will be that you would need more data than the
+    market has produced, and that is the result worth publishing.
+  </p>
+
+  <h2 id="bangladesh">The Bangladesh line</h2>
+  <p>
+    When the leaderboard exists it will carry a horizontal rule at the corrected
+    significance threshold, labelled the Bangladesh line, with one footnote
+    beneath it:
+  </p>
+  <blockquote>
+    In 1994, David Leinweber and Dave Krider searched a UN database of
+    non-financial country statistics and found that butter production in
+    Bangladesh explained 75% of S&amp;P 500 variation from 1981–1993. Adding US
+    cheese production took it to 95%. Adding the sheep populations of Bangladesh
+    and the US took it to 99%. It was published as <em>Stupid Data Miner
+    Tricks</em>. Everything above this line is butter.
+  </blockquote>
+</Base>
+
+<style>
+  .jump {
+    margin: 1.6rem 0 0;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .jump a { font-size: 0.95rem; }
+
+  .scoreboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    border-top: 1px solid var(--rule);
+    margin: 1.6rem 0 1.4rem;
+  }
+  .scoreboard > div {
+    padding: 0.8rem 1.1rem 0.9rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .scoreboard dt { font-size: 0.78rem; color: var(--type-muted); margin-bottom: 0.2rem; }
+  .scoreboard dd { margin: 0; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+
+  .skipped dt { color: var(--amber); font-size: 0.88rem; margin-top: 0.8rem; }
+  .skipped dd { margin: 0.15rem 0 0; color: var(--type-muted); font-size: 0.92rem; }
+
+  .status {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--amber);
+    padding: 1.1rem 1.3rem;
+    margin: 2rem 0 1rem;
+    background: var(--panel);
+  }
+  .status h2 { margin: 0 0 0.5rem; font-size: 1.05rem; color: var(--amber); }
+  .status p { margin: 0 0 0.7rem; }
+  .status p:last-child { margin-bottom: 0; }
+
+  .tier { margin: 2rem 0; }
+  .tier h3 { margin-bottom: 0.2rem; }
+  .tier-note { margin: 0 0 0.8rem; }
+  .tier dl { margin: 0; }
+  .tier dt {
+    font-size: 0.88rem;
+    color: var(--amber);
+    margin-top: 0.85rem;
+  }
+  .tier dd {
+    margin: 0.15rem 0 0;
+    max-width: var(--measure);
+    font-size: 0.94rem;
+    color: var(--type-muted);
+  }
+
+  blockquote {
+    border-left: 2px solid var(--rule);
+    margin: 1.4rem 0;
+    padding-left: 1.15rem;
+    color: var(--type-muted);
+    max-width: var(--measure);
+  }
+</style>

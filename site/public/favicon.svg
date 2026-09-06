@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Orion's Belt: Mintaka, Alnilam, Alnitak. True positions, real magnitudes. -->
+  <rect width="32" height="32" fill="#0b1017"/>
+  <circle cx="26.0" cy="8.49" r="1.95" fill="#f0a860"/>
+  <circle cx="16.38" cy="16.74" r="2.27" fill="#f0a860"/>
+  <circle cx="6.0" cy="23.51" r="2.22" fill="#f0a860"/>
+</svg>

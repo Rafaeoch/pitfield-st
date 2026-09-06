@@ -1,0 +1,156 @@
+---
+import Base from '../layouts/Base.astro';
+import VolSurface from '../components/VolSurface.astro';
+import { getIndex, getLatest, formatSnapshotET, int, pct } from '../lib/archive';
+
+const index = getIndex();
+const latest = getLatest();
+
+const counters = [
+  `Updated ${formatSnapshotET(latest?.snapshot_ts)}`,
+  `${int(index?.n_days)} trading days archived`,
+  `${int(index?.contract_days)} contract-days`,
+];
+---
+
+<Base
+  title="Today"
+  description="A public archive of computed options-derived volatility data, published every trading day, with the code that produced it."
+  wide
+>
+  <section class="hero">
+    <VolSurface height="64vh" />
+  </section>
+
+  <div class="below">
+    {latest?.synthetic && (
+      <p class="synthetic-note">
+        <span class="dot" aria-hidden="true"></span>
+        Rendered from synthetic chains. The pipeline is real; the quotes are not.
+        <a href="/about/">What that means</a>
+      </p>
+    )}
+
+    <p class="counters">
+      {counters.map((c, i) => (
+        <>
+          {i > 0 && <span class="sep" aria-hidden="true"></span>}
+          <span class="num">{c}</span>
+        </>
+      ))}
+    </p>
+
+    <p class="thesis">
+      Every trading day this pipeline ingests option chains, extracts forwards
+      and discount rates from put–call parity, fits arbitrage-free volatility
+      surfaces, and publishes the results together with the data and the code
+      that produced them. The archive grows daily and nothing is ever deleted or
+      revised in place. Alongside it sits a pre-registered study testing roughly
+      thirty celestial and calendar hypotheses against equity returns through the
+      same statistical harness — a standing demonstration of how readily data of
+      exactly this kind will fool you if you let it.
+    </p>
+
+    {latest && (
+      <dl class="readout">
+        <div>
+          <dt>{latest.underlying} spot</dt>
+          <dd class="num">{latest.spot?.toFixed(2)}</dd>
+        </div>
+        <div>
+          <dt>30-day ATM implied</dt>
+          <dd class="num">{pct(latest.metrics?.iv_30)}%</dd>
+        </div>
+        <div>
+          <dt>Expiries fitted</dt>
+          <dd class="num">{latest.arbitrage?.n_expiries_fitted}</dd>
+        </div>
+        <div>
+          <dt>Butterfly condition</dt>
+          <dd class="num">
+            {latest.arbitrage?.n_expiries_butterfly_ok}/{latest.arbitrage?.n_expiries_fitted}
+            {' '}
+            <span class={latest.arbitrage?.n_expiries_butterfly_ok === latest.arbitrage?.n_expiries_fitted ? 'ok' : 'fault'}>
+              {latest.arbitrage?.n_expiries_butterfly_ok === latest.arbitrage?.n_expiries_fitted ? 'pass' : 'violation'}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Calendar condition</dt>
+          <dd class="num">
+            <span class={latest.arbitrage?.calendar_ok ? 'ok' : 'fault'}>
+              {latest.arbitrage?.calendar_ok ? 'pass' : `${latest.arbitrage?.n_calendar_violations} violations`}
+            </span>
+          </dd>
+        </div>
+      </dl>
+    )}
+  </div>
+</Base>
+
+<style>
+  .hero { margin: 0; }
+
+  .below {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 2.2rem clamp(1rem, 4vw, 3rem) 0;
+  }
+
+  .synthetic-note {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: none;
+    margin: 0 0 1.1rem;
+    font-size: 0.86rem;
+    color: var(--fault);
+  }
+  .synthetic-note a { color: var(--fault); }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--fault); flex: none;
+  }
+
+  /* The spec's counter line, with hairline separators rather than middle dots —
+     the design direction rules those out elsewhere on the site. */
+  .counters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.9rem;
+    max-width: none;
+    margin: 0 0 1.8rem;
+    font-size: 0.9rem;
+    color: var(--type-muted);
+  }
+  .sep { width: 1px; height: 0.95em; background: var(--rule); }
+
+  .thesis {
+    font-size: 1.06rem;
+    max-width: 62ch;
+    margin: 0 0 2.6rem;
+  }
+
+  .readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0;
+    margin: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .readout > div {
+    padding: 0.9rem 1.2rem 1rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .readout dt {
+    font-size: 0.8rem;
+    color: var(--type-muted);
+    margin-bottom: 0.25rem;
+  }
+  .readout dd {
+    margin: 0;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+  }
+</style>

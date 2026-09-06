@@ -1,0 +1,306 @@
+---
+import Base from '../../layouts/Base.astro';
+import VolSurface from '../../components/VolSurface.astro';
+import SyntheticBanner from '../../components/SyntheticBanner.astro';
+import { getIndex, getLatest, num, pct, money, int, formatSnapshotET } from '../../lib/archive';
+
+export function getStaticPaths() {
+  return [{ params: { ticker: 'SPY' } }];
+}
+
+const { ticker } = Astro.params;
+const latest = getLatest();
+const index = getIndex();
+
+const m = latest?.metrics ?? {};
+const agg = latest?.aggregates ?? {};
+const cov = latest?.coverage ?? {};
+
+const horizons = [5, 10, 21, 63, 252];
+const estimators = [
+  ['rv_cc', 'Close-to-close'],
+  ['rv_park', 'Parkinson'],
+  ['rv_gk', 'Garman–Klass'],
+  ['rv_rs', 'Rogers–Satchell'],
+  ['rv_yz', 'Yang–Zhang'],
+];
+
+const chartData = {
+  k_grid: latest?.k_grid ?? [],
+  surface: latest?.surface ?? [],
+  gex: agg.gex_by_strike ?? [],
+  flip: agg.gamma_flip_strike ?? null,
+  spot: latest?.spot ?? null,
+  history: index?.history ?? [],
+};
+---
+
+<Base title={`${ticker} surface`} description={`Fitted volatility surface and derived metrics for ${ticker}.`}>
+  <SyntheticBanner synthetic={latest?.synthetic} />
+
+  <h1>{ticker}</h1>
+  <p class="meta">
+    <span>Snapshot {latest?.date} at {formatSnapshotET(latest?.snapshot_ts)}</span>
+    <span class="sep" aria-hidden="true"></span>
+    <span>spot <span class="num">{latest?.spot?.toFixed(2)}</span></span>
+    <span class="sep" aria-hidden="true"></span>
+    <span>pipeline v{latest?.pipeline_version}</span>
+  </p>
+
+  <div class="full">
+    <VolSurface height="52vh" id="ticker-surface" />
+  </div>
+
+  <h2>Implied volatility</h2>
+  <div class="grid-2">
+    <table>
+      <tbody>
+        <tr><th>ATM implied, 30 day</th><td class="n">{pct(m.iv_30)}%</td></tr>
+        <tr><th>ATM implied, 60 day</th><td class="n">{pct(m.iv_60)}%</td></tr>
+        <tr><th>ATM implied, 90 day</th><td class="n">{pct(m.iv_90)}%</td></tr>
+        <tr><th>Term slope, 90 − 30</th><td class="n">{pct(m.term_slope_90_30)}%</td></tr>
+        <tr><th>Term shape</th><td class="n">{m.term_shape ?? '—'}</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <tbody>
+        <tr><th>IV rank, 252 day</th><td class="n">{m.iv_rank == null ? '—' : pct(m.iv_rank, 1) + '%'}</td></tr>
+        <tr><th>IV percentile</th><td class="n">{m.iv_percentile == null ? '—' : pct(m.iv_percentile, 1) + '%'}</td></tr>
+        <tr><th>25Δ risk reversal</th><td class="n">{pct(m.risk_reversal_25d)}%</td></tr>
+        <tr><th>25Δ butterfly</th><td class="n">{pct(m.butterfly_25d)}%</td></tr>
+        <tr><th>ATM skew, ∂σ/∂k</th><td class="n">{num(m.atm_skew_slope, 4)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">
+    IV rank and percentile are computed against this ticker's own trailing
+    history in the archive — {int(m.iv_history_n)} days so far, so read them as
+    provisional until the window fills.
+  </p>
+
+  <h2>The smile, expiry by expiry</h2>
+  <p class="small muted">
+    Points are market implied volatilities inverted from mid quotes; the line is
+    the calibrated SVI fit. Each expiry is drawn only across the strikes that
+    had a two-sided quote with open interest.
+  </p>
+  <div class="chart" id="chart-smile"></div>
+
+  <h2>Term structure</h2>
+  <div class="chart" id="chart-term"></div>
+
+  <h2>Realized volatility</h2>
+  <p class="small muted">
+    Five estimators, annualised on 252 trading days. They disagree by
+    construction: the range estimators use only intraday prices and are blind to
+    the overnight gap, which is exactly what Yang–Zhang adds back.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Estimator</th>
+          {horizons.map((h) => <th class="n">{h}d</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {estimators.map(([key, label]) => (
+          <tr>
+            <th>{label}</th>
+            {horizons.map((h) => <td class="n">{pct(m[`${key}_${h}`])}</td>)}
+          </tr>
+        ))}
+        <tr>
+          <th>Parkinson ÷ close-to-close</th>
+          {horizons.map((h) => <td class="n">{num(m[`rv_park_cc_ratio_${h}`], 3)}</td>)}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Gamma exposure</h2>
+  <div class="banner" role="note">
+    <strong>Sign convention is an assumption.</strong>
+    <p>
+      These figures use the <span class="num">{agg.gex_sign_convention}</span>
+      convention: dealers long gamma from calls, short from puts. That assumes
+      customers buy puts and sell calls, which is a generalisation about flow,
+      not something we can observe — no dealer's book is public. Open interest is
+      previous-day settled and is timestamped
+      <span class="num">{agg.oi_effective_date}</span>, not to today.
+    </p>
+  </div>
+  <div class="grid-2">
+    <table>
+      <tbody>
+        <tr><th>Total gamma exposure</th><td class="n">{money(agg.gex_total)}</td></tr>
+        <tr><th>Gamma flip strike</th><td class="n">{num(agg.gamma_flip_strike, 2)}</td></tr>
+        <tr><th>Max-gamma strike</th><td class="n">{num(agg.max_gamma_strike, 2)}</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <tbody>
+        <tr><th>Max open-interest strike</th><td class="n">{num(agg.max_oi_strike, 2)}</td></tr>
+        <tr><th>Put/call ratio, volume</th><td class="n">{num(agg.put_call_ratio_volume, 3)}</td></tr>
+        <tr><th>Put/call ratio, open interest</th><td class="n">{num(agg.put_call_ratio_oi, 3)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="chart" id="chart-gex"></div>
+
+  <h2>Fit quality, by expiry</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th class="n">Days</th>
+          <th class="n">Forward</th>
+          <th class="n">Rate</th>
+          <th class="n">Parity R²</th>
+          <th class="n">RMSE (vol pts)</th>
+          <th class="n">Used</th>
+          <th class="n">Dropped</th>
+          <th class="n">min g(k)</th>
+          <th>Butterfly</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(latest?.surface ?? []).map((s: any) => (
+          <tr>
+            <td class="n">{s.days}</td>
+            <td class="n">{num(s.forward, 2)}</td>
+            <td class="n">{pct(s.rate, 3)}%</td>
+            <td class="n">{num(s.parity_r2, 6)}</td>
+            <td class="n">{num(s.rmse_vol_points, 3)}</td>
+            <td class="n">{s.n_contracts_used}</td>
+            <td class="n">{s.n_contracts_dropped}</td>
+            <td class="n">{num(s.min_g, 5)}</td>
+            <td class={s.butterfly_ok ? 'ok' : 'fault'}>{s.butterfly_ok ? 'pass' : 'violation'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">
+    {pct(cov.excluded_share, 1)}% of the chain was excluded from the fits —
+    zero-bid, crossed, no open interest, beyond the moneyness cut, or not
+    invertible. The exclusion rate is published because it is part of the
+    result: a surface fitted to a third of a chain is a different object from one
+    fitted to all of it. Full history on <a href="/quality/">the quality page</a>.
+  </p>
+
+  <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
+</Base>
+
+<style>
+  .full { margin: 1.6rem 0 0; }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0 2.6rem;
+    align-items: start;
+  }
+  .chart { margin: 1rem 0 0; min-height: 260px; }
+  :global(.chart svg) { max-width: 100%; height: auto; }
+  :global(.chart figure) { margin: 0; }
+</style>
+
+<script>
+  import * as Plot from '@observablehq/plot';
+
+  const el = document.getElementById('chart-data');
+  if (el) {
+    const data = JSON.parse(el.textContent!);
+
+    const AMBER = '#f0a860';
+    const MUTED = '#8a96a3';
+    const RULE = '#26313d';
+    const TYPE = '#e6e3db';
+
+    const base = {
+      style: { background: 'transparent', color: MUTED, fontSize: '12px' },
+      marginLeft: 58,
+      marginBottom: 42,
+    };
+
+    // --- smile: market points against the fitted curve ------------------
+    // k_grid is shared across expiries and lives on the payload root; each
+    // surface entry carries only the values, aligned to it by index.
+    const kGrid: number[] = data.k_grid;
+
+    const smilePoints: any[] = [];
+    const smileFit: any[] = [];
+    for (const s of data.surface) {
+      const label = `${String(s.days).padStart(3, '0')}d`;
+      (s.market_k ?? []).forEach((k: number, i: number) => {
+        smilePoints.push({ k, iv: s.market_iv[i] * 100, expiry: label });
+      });
+      s.iv_grid.forEach((v: number | null, i: number) => {
+        if (v != null) smileFit.push({ k: kGrid[i], iv: v * 100, expiry: label });
+      });
+    }
+
+    const smile = Plot.plot({
+      ...base,
+      height: 320,
+      x: { label: 'log-moneyness  ln(K/F)', grid: true, tickFormat: '+.2f' },
+      y: { label: 'implied volatility (%)', grid: true },
+      color: { type: 'ordinal', scheme: 'YlOrRd', legend: true, label: 'expiry' },
+      marks: [
+        Plot.frame({ stroke: RULE }),
+        Plot.line(smileFit, { x: 'k', y: 'iv', z: 'expiry', stroke: 'expiry', strokeWidth: 1.6 }),
+        Plot.dot(smilePoints, { x: 'k', y: 'iv', z: 'expiry', fill: 'expiry', r: 1.9, fillOpacity: 0.75 }),
+      ],
+    });
+    document.getElementById('chart-smile')?.append(smile);
+
+    // --- term structure --------------------------------------------------
+    const term = data.surface.map((s: any) => ({
+      days: s.days,
+      atm: (Math.sqrt(Math.max(svi_w(s.svi, 0), 0) / s.T)) * 100,
+    }));
+    function svi_w(p: any, k: number) {
+      const x = k - p.m;
+      return p.a + p.b * (p.rho * x + Math.sqrt(x * x + p.sigma * p.sigma));
+    }
+    const termChart = Plot.plot({
+      ...base,
+      height: 260,
+      x: { label: 'days to expiry', grid: true },
+      y: { label: 'ATM implied volatility (%)', grid: true },
+      marks: [
+        Plot.frame({ stroke: RULE }),
+        Plot.line(term, { x: 'days', y: 'atm', stroke: AMBER, strokeWidth: 1.8 }),
+        Plot.dot(term, { x: 'days', y: 'atm', fill: AMBER, r: 3 }),
+      ],
+    });
+    document.getElementById('chart-term')?.append(termChart);
+
+    // --- gamma exposure by strike ---------------------------------------
+    const gex = data.gex.map((d: any) => ({ ...d, m: d.gex / 1e6 }));
+    const gexChart = Plot.plot({
+      ...base,
+      height: 300,
+      x: { label: 'strike', grid: true },
+      y: { label: 'gamma exposure ($m per 1% move)', grid: true },
+      marks: [
+        Plot.frame({ stroke: RULE }),
+        Plot.ruleY([0], { stroke: RULE }),
+        Plot.rectY(gex, {
+          x: 'strike',
+          y: 'm',
+          interval: 5,
+          fill: (d: any) => (d.m >= 0 ? AMBER : '#c4553d'),
+          fillOpacity: 0.85,
+        }),
+        data.spot != null
+          ? Plot.ruleX([data.spot], { stroke: TYPE, strokeDasharray: '3,3' })
+          : null,
+        data.flip != null
+          ? Plot.ruleX([data.flip], { stroke: '#c4553d', strokeWidth: 1.4 })
+          : null,
+      ].filter(Boolean),
+    });
+    document.getElementById('chart-gex')?.append(gexChart);
+  }
+</script>
