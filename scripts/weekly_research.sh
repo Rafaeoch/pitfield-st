@@ -8,6 +8,7 @@
 # cadence either.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+mkdir -p logs
 STAMP=$(date +%Y-%m-%d)
 {
   echo "=== $(date '+%Y-%m-%d %H:%M:%S %Z') ==="
@@ -20,4 +21,9 @@ STAMP=$(date +%Y-%m-%d)
   echo "notes exit=$?"
   ./.venv/bin/python -m pipeline.study.run_study --resamples 2000 --out site/public/data
   echo "study exit=$?"
+
+  # Rebuild: pages read the archive at build time. Without this the
+  # published numbers stop moving while the globe keeps turning.
+  ./scripts/publish_site.sh
+  echo "publish exit=$?"
 } >> "logs/weekly-$STAMP.log" 2>&1

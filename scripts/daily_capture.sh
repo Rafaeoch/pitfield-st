@@ -6,6 +6,7 @@
 # against the New York close twice a year.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+mkdir -p logs
 STAMP=$(date +%Y-%m-%d)
 {
   echo "--- $(date '+%Y-%m-%d %H:%M:%S %Z') ---"
@@ -17,4 +18,9 @@ STAMP=$(date +%Y-%m-%d)
   # capture this depends on the calendar, not on the exchange being open.
   ./.venv/bin/python -m pipeline.publish.export_celestial --out site/public/data
   echo "celestial exit=$?"
+
+  # Rebuild: pages read the archive at build time. Without this the
+  # published numbers stop moving while the globe keeps turning.
+  ./scripts/publish_site.sh
+  echo "publish exit=$?"
 } >> "logs/capture-$STAMP.log" 2>&1
