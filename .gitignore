@@ -1,0 +1,20 @@
+# The data lake lives in R2, not in git.
+data/
+site/public/data/
+site/dist/
+site/.astro/
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+node_modules/
+npm-debug.log*
+
+.DS_Store
+
+# Secrets. Never commit.
+.env
+
+logs/

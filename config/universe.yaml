@@ -1,0 +1,30 @@
+# The universe, point-in-time.
+#
+# `added_date` makes the universe itself reconstructable to any past date. A
+# ticker is NEVER removed from this file — when it stops trading or leaves the
+# liquid set it gets a `retired_date` and stays. Deleting entries creates
+# survivorship bias in every downstream study, and it is invisible once done.
+
+version: 1
+
+underlyings:
+  # Index and sector ETFs
+  - {ticker: SPY, added_date: 2026-09-02, note: "primary reference"}
+  - {ticker: QQQ, added_date: 2026-09-02}
+  - {ticker: IWM, added_date: 2026-09-02}
+  - {ticker: DIA, added_date: 2026-09-02}
+  - {ticker: VIX, added_date: 2026-09-02, note: "index, not an ETF; different settlement"}
+
+  # Single names, by options volume. The list below is the seed; it grows to
+  # roughly 150 as the ingest is connected to a licensed feed.
+  - {ticker: AAPL, added_date: 2026-09-02}
+  - {ticker: MSFT, added_date: 2026-09-02}
+  - {ticker: NVDA, added_date: 2026-09-02}
+  - {ticker: AMZN, added_date: 2026-09-02}
+  - {ticker: GOOGL, added_date: 2026-09-02}
+  - {ticker: META, added_date: 2026-09-02}
+  - {ticker: TSLA, added_date: 2026-09-02}
+
+# Example of the retirement convention. Kept as documentation of the rule.
+#  - {ticker: EXAMPLE, added_date: 2020-01-02, retired_date: 2024-06-14,
+#     note: "acquired; chain delisted. Row retained deliberately."}
