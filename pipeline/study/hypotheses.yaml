@@ -1,0 +1,265 @@
+# FROZEN at the pre-registration commit. See PREREGISTRATION.md.
+#
+# This file must match the hypothesis list in PREREGISTRATION.md exactly.
+# Adding an entry after study results exist does not amend the pre-registration:
+# it requires a new pre-registration commit, a new family, and separate
+# reporting with its own multiple-comparisons correction.
+#
+# Ordering is by prior plausibility and is preserved in all reporting. Results
+# are never sorted by p-value — sorting a leaderboard by significance is how a
+# multiple-comparisons exercise turns back into a fishing expedition.
+
+defaults:
+  # See PREREGISTRATION.md deviation D1 for the index change.
+  return_series: [IDX_daily, IDX_fwd_5d, IDX_fwd_21d]
+  event_window_days: 5
+
+hypotheses:
+  # --- Tier 1: plausible causal mechanism -------------------------------
+  - id: geomagnetic_storms
+    name: Geomagnetic storms
+    family: celestial
+    tier: 1
+    prior_plausibility: mechanism
+    source: "Krivelyova & Robotti, Atlanta Fed WP 2003-5"
+    variable_module: variables.geomagnetic
+    bucketing: {type: event, threshold: {kp: 7}}
+    notes: >
+      Storms affect mood, mood affects risk appetite, and people misattribute a
+      bad mood to bad economic prospects. Replicate the published specification
+      before testing any variant.
+
+  - id: seasonal_affective
+    name: Seasonal affective disorder
+    family: celestial
+    tier: 1
+    prior_plausibility: mechanism
+    source: "Kamstra, Kramer & Levi"
+    variable_module: variables.night_length
+    bucketing: {type: tercile}
+
+  - id: daylight_saving
+    name: Daylight saving transitions
+    family: calendar
+    tier: 1
+    prior_plausibility: mechanism
+    variable_module: variables.daylight_saving
+    bucketing: {type: event, event_window_days: 3}
+
+  # --- Tier 2: cyclical, no mechanism -----------------------------------
+  - id: lunar_phase
+    name: Lunar phase
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    source: "Yuan & Zheng, Are Investors Moonstruck?"
+    variable_module: variables.lunar_phase
+    bucketing:
+      type: categorical
+      buckets: [new, waxing_crescent, first_quarter, waxing_gibbous,
+                full, waning_gibbous, last_quarter, waning_crescent]
+
+  - id: lunar_perigee
+    name: Lunar perigee
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    variable_module: variables.lunar_distance
+    bucketing: {type: tercile}
+
+  - id: lunar_nodes
+    name: Lunar node cycle
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    source: "McWhirter (1938)"
+    variable_module: variables.lunar_nodes
+    bucketing: {type: tercile}
+
+  - id: eclipses_solar
+    name: Solar eclipses
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    variable_module: variables.eclipses
+    bucketing: {type: event}
+
+  - id: eclipses_lunar
+    name: Lunar eclipses
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    variable_module: variables.eclipses
+    bucketing: {type: event}
+
+  - id: saros_cycle
+    name: Saros cycle
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    variable_module: variables.saros
+    bucketing: {type: tercile}
+
+  - id: sunspot_number
+    name: Sunspot number
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    source: "SILSO"
+    variable_module: variables.sunspots
+    bucketing: {type: tercile}
+
+  - id: metonic_cycle
+    name: Metonic cycle
+    family: celestial
+    tier: 2
+    prior_plausibility: none
+    variable_module: variables.metonic
+    bucketing: {type: tercile}
+
+  # --- Tier 3: astrology -------------------------------------------------
+  - id: jupiter_saturn_conjunction
+    name: Jupiter–Saturn conjunction
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.aspects
+    bucketing: {type: event}
+
+  - id: saturn_return
+    name: Saturn return
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.saturn
+    bucketing: {type: tercile}
+
+  - id: saturn_uranus_aspect
+    name: Saturn–Uranus aspect
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.aspects
+    bucketing: {type: event}
+
+  - id: saturn_pluto_aspect
+    name: Saturn–Pluto aspect
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.aspects
+    bucketing: {type: event}
+
+  - id: mercury_retrograde
+    name: Mercury retrograde
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.retrograde
+    bucketing: {type: binary}
+    notes: >
+      About three times a year, so the highest event count in the study and the
+      best-powered test in it. Say so in the results: this is the fairest
+      possible shot any of these get.
+
+  - id: venus_retrograde
+    name: Venus retrograde
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.retrograde
+    bucketing: {type: binary}
+
+  - id: mars_retrograde
+    name: Mars retrograde
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.retrograde
+    bucketing: {type: binary}
+
+  - id: planetary_aspects_generic
+    name: Planetary aspects, all pairs
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    variable_module: variables.aspects
+    bucketing:
+      type: categorical
+      buckets: [conjunction, sextile, square, trine, opposition]
+      orb_degrees: 3
+
+  - id: bradley_siderograph
+    name: Bradley siderograph
+    family: celestial
+    tier: 3
+    prior_plausibility: none
+    source: "Bradley (1948), Stock Market Prediction: The Planetary Barometer"
+    variable_module: variables.bradley
+    bucketing: {type: tercile}
+    notes: >
+      A weighted sum over aspect angles producing a daily curve — fully
+      computable, no interpretation required. Bradley claimed it marks turning
+      points rather than direction, and that specificity makes it genuinely
+      falsifiable, which most of this tier is not. Use the published weights and
+      cite them; if they cannot be sourced, document the reconstruction as a
+      reconstruction and label it in the results.
+
+  # --- Tier 4: calendar effects, as a control group ----------------------
+  - id: january_effect
+    name: January effect
+    family: calendar
+    tier: 4
+    prior_plausibility: weak
+    variable_module: variables.calendar
+    bucketing: {type: binary}
+
+  - id: sell_in_may
+    name: Sell in May
+    family: calendar
+    tier: 4
+    prior_plausibility: weak
+    variable_module: variables.calendar
+    bucketing: {type: binary}
+
+  - id: turn_of_month
+    name: Turn of month
+    family: calendar
+    tier: 4
+    prior_plausibility: weak
+    variable_module: variables.calendar
+    bucketing: {type: binary}
+
+  - id: day_of_week
+    name: Day of week
+    family: calendar
+    tier: 4
+    prior_plausibility: weak
+    variable_module: variables.calendar
+    bucketing:
+      type: categorical
+      buckets: [monday, tuesday, wednesday, thursday, friday]
+
+  - id: santa_claus_rally
+    name: Santa Claus rally
+    family: calendar
+    tier: 4
+    prior_plausibility: weak
+    variable_module: variables.calendar
+    bucketing: {type: binary}
+
+  - id: triple_witching
+    name: Triple witching
+    family: calendar
+    tier: 4
+    prior_plausibility: weak
+    variable_module: variables.calendar
+    bucketing: {type: event, event_window_days: 3}
+
+  - id: opex_week
+    name: Options expiry week
+    family: calendar
+    tier: 4
+    prior_plausibility: weak
+    variable_module: variables.calendar
+    bucketing: {type: binary}
