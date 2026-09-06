@@ -30,7 +30,25 @@ apt-get install -y -qq \
   python3 python3-venv python3-dev build-essential \
   git curl rsync ufw ca-certificates gnupg debian-keyring debian-archive-keyring \
   apt-transport-https unattended-upgrades
-python3 --version
+
+# Fail here, loudly, rather than three minutes later inside a pip build log.
+# The archive's tests have only ever run on 3.12 and 3.13. A newer system
+# Python is not necessarily broken, but every scientific wheel this project
+# needs -- numpy, scipy, polars, pyarrow, pandas -- must publish a build for
+# that ABI or pip drops to compiling from source, which on two shared cores
+# takes an hour or runs out of memory. Better to know now.
+PYVER=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')
+echo "system python: $PYVER"
+case "$PYVER" in
+  3.12|3.13) ;;
+  *)
+    echo
+    echo "WARNING: python $PYVER is outside the tested range (3.12, 3.13)."
+    echo "Ubuntu 24.04 LTS ships 3.12 and is the supported image here."
+    echo "Continuing, but if pip starts building numpy from source, this is why."
+    echo
+    ;;
+esac
 
 say "Node.js 22 (Astro needs 18+; the distro package lags)"
 if ! command -v node >/dev/null 2>&1; then
