@@ -1,0 +1,91 @@
+name: daily
+
+# Scheduled hourly across the window that can contain a US close, NOT at a fixed
+# UTC time. A hardcoded UTC cron drifts by an hour twice a year relative to the
+# New York close, and silently ingests a chain twenty minutes before the bell
+# for half the year. The job itself decides whether to run.
+on:
+  schedule:
+    - cron: '5 19-22 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy scipy polars pyyaml pyarrow \
+            pandas-market-calendars skyfield pytest
+
+      # The gate. Exit cleanly and silently unless today was a trading day and
+      # the close has passed — including half days, which close at 13:00 ET.
+      - name: Should we run?
+        id: gate
+        run: python -m pipeline.ingest.calendar_gate --minutes-after-close 20
+
+      - name: Tests
+        if: steps.gate.outputs.should_run == 'true'
+        run: python -m pytest tests/ -q
+
+      - name: Ingest and compute
+        if: steps.gate.outputs.should_run == 'true'
+        run: make daily
+
+      # Not yet enabled. Object storage and the Pages hook activate once the
+      # ingest is connected to a licensed feed; until then the archive is
+      # generated locally and these steps would reference credentials that do
+      # not exist. Left here as the intended shape rather than deleted, but
+      # deliberately not wired up — a workflow that calls a module we have not
+      # written is a broken workflow, not a placeholder.
+      #
+      # - name: Publish to R2
+      #   if: steps.gate.outputs.should_run == 'true'
+      #   env:
+      #     R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #     R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #   run: python -m pipeline.publish.export --target r2
+      #
+      # - name: Trigger site build
+      #   if: steps.gate.outputs.should_run == 'true'
+      #   run: curl -fsS -X POST "${{ secrets.CF_PAGES_DEPLOY_HOOK }}"
+
+      # A gap in the archive is worse than a loud error. Never fail silently.
+      - name: Open an issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const date = new Date().toISOString().slice(0, 10);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Daily pipeline failed — ${date}`,
+              body: [
+                `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                '',
+                'The archive has a gap for this session until this is resolved.',
+                'Do not backfill by re-running against a later snapshot: the',
+                'quotes would carry the wrong timestamp. Record the gap instead.',
+              ].join('\n'),
+              labels: ['pipeline', 'archive-gap'],
+            });
+
+  # The study moves far too slowly to justify a daily re-run.
+  study:
+    if: github.event.schedule == '5 19-22 * * 1-5' && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Weekly study run is configured separately; see study.yml"

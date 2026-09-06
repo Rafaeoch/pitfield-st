@@ -1,0 +1,288 @@
+---
+import Base from '../layouts/Base.astro';
+import fs from 'node:fs';
+import path from 'node:path';
+
+let lit: any = null;
+try {
+  lit = JSON.parse(fs.readFileSync(path.resolve('public/data/literature.json'), 'utf8'));
+} catch { /* renders its empty state */ }
+
+const sections = lit?.sections ?? [];
+const withPapers = sections.filter((s: any) => s.papers?.length);
+---
+
+<Base
+  title="Reading"
+  description="The literature behind what this archive computes: volatility surfaces, variance risk premia, momentum, and the multiple-testing methodology the celestial study rests on."
+>
+  <h1>Reading</h1>
+  <p class="lede">
+    Every method on this site came from somewhere. This is where — assembled
+    from OpenAlex, grouped by the part of the pipeline each body of work
+    supports, and ordered by relevance rather than by citation count.
+  </p>
+
+  {lit ? (
+    <>
+      <p class="meta">
+        <span>{lit.n_papers} papers</span>
+        <span class="sep" aria-hidden="true"></span>
+        <span>{withPapers.length} topics</span>
+        <span class="sep" aria-hidden="true"></span>
+        <span>source <a href={lit.source_url}>{lit.source}</a></span>
+      </p>
+
+      <nav class="jump" aria-label="Topics">
+        {withPapers.map((s: any) => (
+          <a href={`#${s.key}`}>{s.name}</a>
+        ))}
+      </nav>
+
+      {withPapers.map((s: any) => (
+        <section class="topic" id={s.key}>
+          <h2>{s.name}</h2>
+          <p class="why">{s.why}</p>
+          <ol class="papers">
+            {s.papers.map((p: any) => (
+              <li>
+                <details>
+                  <summary>
+                    <span class="title">{p.title}</span>
+                    <span class="byline">
+                      {p.authors?.length ? p.authors.join(', ') : 'unattributed'}
+                      {p.authors?.length >= 4 && ' et al.'}
+                      {p.year && <span class="year num">{p.year}</span>}
+                      {p.venue && <span class="venue">{p.venue}</span>}
+                    </span>
+                    <span class="marks">
+                      {p.cited_by > 0 && (
+                        <span class="num">cited {p.cited_by.toLocaleString()}</span>
+                      )}
+                      {p.open_access && <span class="oa">open access</span>}
+                      {p.note && <span class="hasnote">note</span>}
+                    </span>
+                  </summary>
+
+                  <div class="body">
+                    {p.note ? (
+                      <>
+                        <p class="note-label">
+                          Relevance to options markets
+                          <span class="generated">written from the abstract, not the paper</span>
+                        </p>
+                        <p class="note">{p.note}</p>
+                      </>
+                    ) : (
+                      <p class="note-missing">
+                        No note yet. These are generated in batch; run
+                        <span class="num"> make notes</span>.
+                      </p>
+                    )}
+
+                    {p.excerpt && (
+                      <p class="excerpt">
+                        <span class="excerpt-label">From the abstract</span>
+                        {p.excerpt}
+                      </p>
+                    )}
+
+                    {p.url && (
+                      <p class="source">
+                        <a href={p.url}>Read the paper</a>
+                        {p.doi && <span class="doi num">{p.doi.replace('https://doi.org/', 'doi:')}</span>}
+                      </p>
+                    )}
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
+
+      <h2>On the notes</h2>
+      <p>
+        Each expanded entry carries a short note on how the work bears on
+        options markets. Those notes are written by Claude
+        {lit.note_model && <span class="num"> ({lit.note_model})</span>} from
+        the paper's <em>abstract</em> — not from the paper.
+      </p>
+      <p>
+        That distinction is the whole caveat. An abstract is a few hundred words
+        the authors wrote to advertise the work. A note derived from it can say
+        what the paper appears to be about and how that might bear on option
+        pricing. It cannot tell you whether the method holds up, what the data
+        actually showed, or whether the conclusion survived contact with
+        referees. Every entry links to the paper so you can go and check, and
+        the honest use of this page is as an index that tells you what to read
+        next — not as a substitute for reading it.
+      </p>
+      <p class="small muted">
+        {lit.n_notes ?? 0} of {lit.n_papers} papers carry a note. Full abstracts
+        are not republished: OpenAlex distributes them as an inverted index
+        precisely so the text is not redistributed, and the excerpt shown is for
+        identification.
+      </p>
+
+      <h2>On the sourcing</h2>
+      <p>
+        Not Google Scholar. It has no public API, its terms forbid programmatic
+        access, and it blocks automated requests within a handful of calls — a
+        page built on it would break quietly and deserve to. OpenAlex is an open
+        catalogue of some 250 million works, CC0 licensed, and built to be
+        queried.
+      </p>
+      <p>
+        Results are ordered by relevance, never by citation count. Sorting a
+        loose full-text match by citations returns the most-cited papers that
+        happen to match on any word: a query for
+        <em> implied volatility surface</em> ranked that way came back with
+        papers on plastics chemistry and polymer degradation. Relevance
+        ordering returns Gatheral.
+      </p>
+      <p class="small muted">
+        {lit.licence} Excerpts are truncated for identification; follow the link
+        for the paper itself. A work appearing under more than one topic is
+        listed under the first, which is ordered by how central it is here.
+      </p>
+    </>
+  ) : (
+    <div class="status">
+      <h2>Not yet built</h2>
+      <p>Run <span class="num">make reading</span> to assemble the list.</p>
+    </div>
+  )}
+</Base>
+
+<style>
+  .jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.3rem;
+    padding: 0.9rem 0;
+    margin: 1.4rem 0 0.5rem;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.88rem;
+  }
+
+  .topic { margin: 2.6rem 0 0; }
+  .why {
+    color: var(--type-muted);
+    font-size: 0.94rem;
+    margin: 0 0 1.2rem;
+  }
+
+  .papers { list-style: none; margin: 0; padding: 0; counter-reset: paper; }
+  .papers li {
+    max-width: none;
+    padding: 0.9rem 0 1rem 2.2rem;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+    counter-increment: paper;
+  }
+  .papers li::before {
+    content: counter(paper);
+    position: absolute;
+    left: 0;
+    top: 1rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--type-muted);
+  }
+
+  details summary {
+    list-style: none;
+    cursor: pointer;
+    display: block;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before {
+    content: '+';
+    position: absolute;
+    left: 0.9rem;
+    top: 0.95rem;
+    font-family: var(--mono);
+    color: var(--type-muted);
+    font-size: 0.9rem;
+  }
+  details[open] summary::before { content: '−'; color: var(--amber); }
+  details summary:hover .title { color: var(--amber); }
+
+  .title {
+    display: block;
+    font-size: 1rem;
+    line-height: 1.35;
+    max-width: 70ch;
+  }
+  .byline {
+    display: block;
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: var(--type-muted);
+  }
+
+  .body {
+    margin: 0.9rem 0 0.2rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--rule);
+  }
+  .note-label {
+    margin: 0 0 0.3rem;
+    font-size: 0.8rem;
+    color: var(--amber);
+    max-width: none;
+  }
+  .note-label .generated {
+    color: var(--type-muted);
+    font-style: italic;
+    margin-left: 0.6rem;
+  }
+  .note { margin: 0 0 0.9rem; font-size: 0.94rem; max-width: 74ch; }
+  .note-missing {
+    margin: 0 0 0.9rem;
+    font-size: 0.88rem;
+    color: var(--type-muted);
+    max-width: none;
+  }
+  .excerpt-label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--type-muted);
+    margin-bottom: 0.2rem;
+  }
+  .source { margin: 0.9rem 0 0; max-width: none; font-size: 0.9rem; }
+  .source .doi { margin-left: 0.9rem; color: var(--type-muted); font-size: 0.8rem; }
+  .marks .hasnote { color: var(--amber); }
+  .byline .year, .byline .venue { margin-left: 0.8rem; }
+  .byline .venue { font-style: italic; }
+
+  .excerpt {
+    margin: 0.5rem 0 0;
+    font-size: 0.88rem;
+    color: var(--type-muted);
+    max-width: 78ch;
+    line-height: 1.55;
+  }
+
+  .marks {
+    display: flex;
+    margin: 0.45rem 0 0;
+    display: flex;
+    gap: 1rem;
+    font-size: 0.78rem;
+    color: var(--type-muted);
+    max-width: none;
+  }
+  .marks .oa { color: var(--amber); }
+
+  .status {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--amber);
+    background: var(--panel);
+    padding: 1.1rem 1.3rem;
+    margin: 1.6rem 0;
+  }
+  .status h2 { margin: 0 0 0.4rem; font-size: 1rem; color: var(--amber); }
+</style>

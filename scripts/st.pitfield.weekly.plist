@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>st.pitfield.weekly</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/rafaelochoa/pitfield-st/scripts/weekly_research.sh</string>
+    </array>
+    <key>WorkingDirectory</key><string>/Users/rafaelochoa/pitfield-st</string>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>0</integer>
+              <key>Hour</key><integer>9</integer>
+              <key>Minute</key><integer>15</integer></dict>
+    </array>
+    <key>StandardOutPath</key><string>/Users/rafaelochoa/pitfield-st/logs/weekly.out</string>
+    <key>StandardErrorPath</key><string>/Users/rafaelochoa/pitfield-st/logs/weekly.err</string>
+    <key>RunAtLoad</key><false/>
+</dict>
+</plist>
