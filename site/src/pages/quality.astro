@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import SyntheticBanner from '../components/SyntheticBanner.astro';
+import DataProvenance from '../components/DataProvenance.astro';
 import { getIndex, getLatest, num, pct, int } from '../lib/archive';
 
 const latest = getLatest();
@@ -14,7 +14,7 @@ const history = index?.history ?? [];
   title="Quality"
   description="The daily quality-control report for the archive: crossed markets, zero-bid share, stale quotes, fit failures and exclusion rates."
 >
-  <SyntheticBanner synthetic={latest?.synthetic} />
+  <DataProvenance synthetic={latest?.synthetic} feed={latest?.feed ?? null} />
 
   <h1>Quality</h1>
   <p class="lede">

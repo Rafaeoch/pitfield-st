@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import VolSurface from '../../components/VolSurface.astro';
-import SyntheticBanner from '../../components/SyntheticBanner.astro';
+import DataProvenance from '../../components/DataProvenance.astro';
 import { getIndex, getLatest, num, pct, money, int, formatSnapshotET } from '../../lib/archive';
 
 export function getStaticPaths() {
@@ -36,7 +36,7 @@ const chartData = {
 ---
 
 <Base title={`${ticker} surface`} description={`Fitted volatility surface and derived metrics for ${ticker}.`}>
-  <SyntheticBanner synthetic={latest?.synthetic} />
+  <DataProvenance synthetic={latest?.synthetic} feed={latest?.feed ?? null} />
 
   <h1>{ticker}</h1>
   <p class="meta">

@@ -1,0 +1,45 @@
+---
+/**
+ * States what produced the numbers on this page, whenever that is anything
+ * other than a consolidated, licensed feed.
+ *
+ * Load-bearing, not decoration. A site publishing computed derivatives data has
+ * one obligation it cannot compromise on: never let a reader mistake generated
+ * numbers for observed ones, or derived quotes for the consolidated tape.
+ *
+ * This began as a synthetic-or-nothing banner, which had a trapdoor in it. The
+ * moment real capture started, `synthetic` went false, the banner vanished, and
+ * the page showed confident implied vols and gamma exposure with nothing saying
+ * they came from Alpaca's *indicative* feed rather than OPRA. The silence
+ * asserted more than the data could support. Provenance is now a three-state
+ * question, and only the licensed case is allowed to say nothing.
+ */
+interface Props { synthetic?: boolean; feed?: string | null }
+const { synthetic, feed } = Astro.props;
+
+const derived = !synthetic && feed != null && feed !== "opra";
+---
+{synthetic && (
+  <aside class="banner" role="note">
+    <strong>Synthetic data.</strong>
+    <p>
+      Every number on this page was computed from simulated option chains, not
+      from the market. The pipeline, the calibration and the statistics are real
+      and are the same code that will run on licensed data; the quotes they were
+      run against are not. Nothing here describes any actual security.
+    </p>
+  </aside>
+)}
+{derived && (
+  <aside class="banner banner--derived" role="note">
+    <strong>Derived quotes, not the consolidated tape.</strong>
+    <p>
+      These numbers were computed from Alpaca's <code>{feed}</code> feed, which
+      is a derived estimate rather than the OPRA consolidated NBBO. The
+      arithmetic is identical to what runs on a licensed feed and every stored
+      row is tagged with its source — but the inputs are not the official
+      record, spreads are not the ones you could have traded, and these values
+      should not be treated as authoritative prices for any security.
+    </p>
+  </aside>
+)}

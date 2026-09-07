@@ -107,6 +107,25 @@ else
   echo "/etc/pitfield/env exists, left untouched"
 fi
 
+say "SSH: keys only"
+# The box is reachable from the whole internet on port 22 and will be scanned
+# within minutes of getting an IP. Key authentication already works -- the
+# deploy depends on it -- so password authentication is pure attack surface:
+# nothing legitimate uses it, and it is what the scanners are there for.
+install -d -m 0755 /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/10-pitfield.conf <<'SSHEOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+SSHEOF
+if sshd -t; then
+  systemctl reload ssh 2>/dev/null || systemctl reload sshd
+  sshd -T | grep -E "^(passwordauthentication|permitrootlogin)" | sed "s/^/  /"
+else
+  echo "  sshd config test FAILED; leaving SSH untouched" >&2
+  rm -f /etc/ssh/sshd_config.d/10-pitfield.conf
+fi
+
 say "Firewall"
 ufw --force reset >/dev/null
 ufw default deny incoming >/dev/null

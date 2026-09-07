@@ -30,6 +30,14 @@ const counters = [
         <a href="/about/">What that means</a>
       </p>
     )}
+    {!latest?.synthetic && latest?.feed && latest.feed !== 'opra' && (
+      <p class="synthetic-note">
+        <span class="dot" aria-hidden="true"></span>
+        Computed from the <code>{latest.feed}</code> feed — derived quotes, not
+        the OPRA consolidated tape.
+        <a href="/about/">What that means</a>
+      </p>
+    )}
 
     <p class="counters">
       {counters.map((c, i) => (

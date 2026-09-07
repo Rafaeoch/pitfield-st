@@ -16,6 +16,11 @@ export interface ArchiveIndex {
   generated_at: string;
   pipeline_version: string;
   synthetic: boolean;
+  /** Which options feed produced these rows: "opra", "indicative", or null
+   *  when the archive is synthetic. Rendered by DataProvenance, because a page
+   *  that shows real-looking numbers without saying where they came from is
+   *  asserting more than the data supports. */
+  feed: string | null;
   underlying: string;
   latest_date: string;
   n_days: number;
