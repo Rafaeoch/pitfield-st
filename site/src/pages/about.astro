@@ -26,6 +26,30 @@ const latest = getLatest();
     <li>There is not a single backtest equity curve in the repository, and there never will be.</li>
   </ul>
 
+  {!latest?.synthetic && latest?.feed && latest.feed !== 'opra' && (
+    <>
+      <h2>On the current data</h2>
+      <div class="banner" role="note">
+        <strong>Quotes are derived, not the consolidated tape.</strong>
+        <p>
+          The chains behind these numbers come from Alpaca's
+          <code>{latest.feed}</code> feed, which estimates a quote rather than
+          reporting the OPRA consolidated NBBO. This archive has no OPRA
+          entitlement, and rather than publish nothing it publishes this,
+          labelled. Every stored row carries the feed it came from, so the
+          record stays honest even if a later page forgets to mention it.
+        </p>
+        <p>
+          What that costs you: the levels are estimates, the spreads are not
+          tradeable, and a volatility surface fitted to them should not be
+          treated as the market's. What it does not cost: the pipeline,
+          the parity forward extraction, the arbitrage conditions and the
+          quality report are the same code that would run on a licensed feed.
+        </p>
+      </div>
+    </>
+  )}
+
   {latest?.synthetic && (
     <>
       <h2>On the current data</h2>

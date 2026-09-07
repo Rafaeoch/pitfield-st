@@ -289,6 +289,20 @@ const eq = {
         security today.
       </li>
     )}
+    {!latest?.synthetic && latest?.feed && latest.feed !== 'opra' && (
+      <li>
+        <strong class="fault">Quotes come from a derived feed, not the
+        consolidated tape.</strong>
+        Every price below was computed from Alpaca's <code>{latest.feed}</code>
+        feed, an estimate rather than the OPRA consolidated NBBO. The forward
+        extraction, the calibration and the arbitrage checks are unchanged and
+        the arithmetic is identical — but the inputs are not the official record
+        of what traded, the spreads are not ones you could have transacted
+        against, and a surface fitted to them inherits whatever bias the
+        estimator carries. Treat the levels as indicative and the shapes as
+        provisional.
+      </li>
+    )}
     <li>
       Expiries are fitted independently. A global SSVI fit across maturities —
       which would enforce the calendar condition by construction rather than
