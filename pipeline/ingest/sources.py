@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,6 +63,49 @@ def _slug(url: str) -> str:
     return f"{tail or 'payload'}.{digest}"
 
 
+# A blip is not an outage. These are the failures worth one more attempt.
+RETRY_ON = (
+    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.ChunkedEncodingError,
+)
+RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+MAX_ATTEMPTS = 3
+BACKOFF_SECONDS = 2.0
+
+
+def _get_with_retry(url: str, *, timeout: int) -> requests.Response:
+    """GET with a small bounded retry on transient failures only.
+
+    Deliberately narrow. A 404 or a 403 is the source answering, and answering
+    the same way however many times you ask; retrying it wastes a source's
+    goodwill and hides a real error behind a delay.
+    """
+    last: Exception | None = None
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            response = requests.get(
+                url, headers={"User-Agent": USER_AGENT}, timeout=timeout
+            )
+            if response.status_code in RETRY_STATUS and attempt < MAX_ATTEMPTS:
+                last = requests.exceptions.HTTPError(
+                    f"{response.status_code} from {url}", response=response
+                )
+            else:
+                response.raise_for_status()
+                return response
+        except RETRY_ON as exc:
+            last = exc
+            if attempt == MAX_ATTEMPTS:
+                raise
+        # Linear, not exponential: three attempts two seconds apart is polite
+        # to a free public source and still fits inside a job's timeout.
+        time.sleep(BACKOFF_SECONDS * attempt)
+
+    assert last is not None
+    raise last
+
+
 def fetch(
     url: str,
     *,
@@ -76,6 +120,15 @@ def fetch(
     untouched. Nothing here retries aggressively — if a source is down, the
     right response is to fail loudly and leave the archive with a recorded gap,
     not to silently serve stale data as though it were today's.
+
+    "Not aggressively" is not "not at all". A read timeout or a 5xx is a blip,
+    not a source being down, and the two are worth telling apart: a single
+    slow second from FRED once failed a deploy outright while the same
+    endpoint answered in 0.19s a minute later. So transient failures get a
+    small bounded retry with backoff, and everything else — 404, 403, a bad
+    payload — still fails on the first try, because those are answers, not
+    accidents. When the retries are exhausted the exception propagates
+    unchanged and the caller still records a gap.
     """
     cache_dir.mkdir(parents=True, exist_ok=True)
     if params:
@@ -96,10 +149,7 @@ def fetch(
             from_cache=True,
         )
 
-    response = requests.get(
-        url, headers={"User-Agent": USER_AGENT}, timeout=timeout
-    )
-    response.raise_for_status()
+    response = _get_with_retry(url, timeout=timeout)
 
     body_path.write_bytes(response.content)
     digest = hashlib.sha256(response.content).hexdigest()
