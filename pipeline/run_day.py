@@ -671,9 +671,151 @@ def build_archive(
     return days
 
 
+def build_from_captures(
+    out_dir: Path,
+    underlying: str = "SPY",
+    root: Path | None = None,
+    max_days: int | None = None,
+) -> list[dict]:
+    """Build the archive from real captured chains instead of the simulator.
+
+    This is the join that makes the daily capture mean something. Until it
+    existed, capture.py wrote Parquet that nothing read and the published
+    surfaces came from synthetic_chain() forever -- a working collection system
+    feeding a website that ignored it.
+
+    Reads one partition per session, oldest first, because the pipeline is
+    path-dependent in two ways that a per-day loop would silently lose: SVI is
+    warm-started from the previous day's parameters, and IV rank and percentile
+    need the history behind them. Rebuilding the whole archive each run is
+    affordable at this size and keeps a re-run reproducible from the Parquet
+    alone.
+    """
+    from .ingest.capture import CHAINS_DIR
+    import polars as pl
+
+    root = root or CHAINS_DIR
+    directories = sorted(root.glob(f"date=*/underlying={underlying.upper()}"))
+    if not directories:
+        raise SystemExit(
+            f"no captured chains under {root} for {underlying}. "
+            "Run `make capture` on a trading day first."
+        )
+
+    sessions: list[tuple[date, Path]] = []
+    for directory in directories:
+        asof = date.fromisoformat(directory.parent.name.split("=", 1)[1])
+        chosen = _authoritative_partition(directory)
+        if chosen is not None:
+            sessions.append((asof, chosen))
+    sessions.sort()
+    if max_days is not None:
+        sessions = sessions[-max_days:]
+
+    # Bars are fetched once for the whole window, with a long lead-in: the
+    # realized-volatility estimators and the 12-1 momentum measure need history
+    # well before the first captured session.
+    bars_by_date = _load_bars(underlying, sessions[0][0], sessions[-1][0])
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    days: list[dict] = []
+    iv30_history: list[float] = []
+    prior: dict[int, SVIParams] = {}
+
+    for asof, path in sessions:
+        rows = pl.read_parquet(path).to_dicts()
+        if not rows:
+            continue
+
+        spot = float(rows[0]["spot"])
+        day_bars = _bars_through(bars_by_date, asof)
+
+        record = compute_day(
+            underlying,
+            asof,
+            spot=spot,
+            # Ignored on this path -- compute_day only consults atm_vol when it
+            # has to synthesise a chain, and here it has a real one.
+            atm_vol=0.15,
+            bars=day_bars,
+            iv30_history=iv30_history.copy(),
+            prior_params=prior,
+            rows=rows,
+        )
+
+        prior = {
+            entry["days"]: SVIParams(**entry["svi"]) for entry in record["surface"]
+        }
+        iv30 = record["metrics"].get("iv_30")
+        if iv30 is not None:
+            iv30_history.append(iv30)
+
+        (out_dir / f"{asof}.json").write_text(json.dumps(record, separators=(",", ":")))
+        days.append(record)
+
+    return days
+
+
+def _authoritative_partition(directory: Path) -> Path | None:
+    """The file that represents a session: its most recent correction, if any.
+
+    A day can hold several Parquet files. capture.py never overwrites: the first
+    write of a session is ``part.parquet`` and any later one lands beside it as
+    ``part.correction-HHMMSS.parquet``, so the archive keeps what it originally
+    published as well as what superseded it.
+
+    Reading them all would publish one session several times over. Taking the
+    lexical maximum would be worse than that: "part.parquet" sorts *after*
+    "part.correction-...", so the naive choice silently republishes the data a
+    correction was issued to replace. The newest correction wins, and the
+    original is retained on disk rather than deleted.
+    """
+    corrections = sorted(directory.glob("part.correction-*.parquet"))
+    if corrections:
+        return corrections[-1]
+    original = directory / "part.parquet"
+    return original if original.exists() else None
+
+
+def _load_bars(underlying: str, first: date, last: date) -> dict[date, dict]:
+    """Daily OHLCV keyed by date, with enough lead-in for the long estimators."""
+    from .ingest.providers.alpaca import AlpacaProvider
+
+    provider = AlpacaProvider()
+    start = first - timedelta(days=600)   # ~400 sessions before the first one
+    return {
+        bar["date"]: bar
+        for bar in provider.fetch_underlying_bars(underlying, start, last)
+    }
+
+
+def _bars_through(bars_by_date: dict[date, dict], asof: date) -> dict | None:
+    """Everything up to and including ``asof``, as the arrays compute_day wants.
+
+    Sliced per session rather than passed whole, so a day's realized volatility
+    can never be computed from bars that had not happened yet. Lookahead is the
+    easiest error to introduce here and the hardest to see in the output.
+    """
+    usable = [b for d, b in sorted(bars_by_date.items()) if d <= asof]
+    if len(usable) < 30:
+        return None
+    return {
+        "open": np.array([b["open"] for b in usable], dtype=float),
+        "high": np.array([b["high"] for b in usable], dtype=float),
+        "low": np.array([b["low"] for b in usable], dtype=float),
+        "close": np.array([b["close"] for b in usable], dtype=float),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--days", type=int, default=180)
+    parser.add_argument(
+        "--source",
+        choices=("synthetic", "captures"),
+        default="synthetic",
+        help="build from the simulator, or from real captured chains",
+    )
     parser.add_argument("--out", type=Path, default=Path("site/public/data"))
     parser.add_argument(
         "--end",
@@ -684,7 +826,10 @@ def main() -> None:
     args = parser.parse_args()
 
     archive_dir = args.out / "archive"
-    records = build_archive(args.days, archive_dir, end=args.end)
+    if args.source == "captures":
+        records = build_from_captures(archive_dir, max_days=args.days)
+    else:
+        records = build_archive(args.days, archive_dir, end=args.end)
     latest = records[-1]
 
     (args.out / "latest.json").write_text(json.dumps(latest, separators=(",", ":")))
