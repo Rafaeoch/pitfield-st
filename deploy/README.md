@@ -19,8 +19,11 @@ Two workable choices. The server types are not offered everywhere: the Intel
 
 | | Type | Where | Specs | ~Price |
 |---|---|---|---|---|
-| Cheapest | **CX22** | Falkenstein / Nuremberg / Helsinki | 2 vCPU, 4GB, 40GB | €3.79/mo |
-| US-hosted | **CPX21** | Ashburn / Hillsboro | 3 vCPU, 4GB, 80GB | €7.55/mo |
+| Take this | **CX23** | Falkenstein / Nuremberg / Helsinki | 2 vCPU, 4GB | $6.49/mo |
+| US-hosted | **CPX21** | Ashburn / Hillsboro | 3 vCPU, 4GB, 80GB | $37.49/mo |
+
+The US premium is real and large -- roughly six times -- and buys nothing here.
+The cheapest Ashburn option (CPX11) has 2GB, which is below the line.
 
 Take CX22 in the EU unless you specifically want US hosting. Nothing here is
 latency-sensitive: it is a once-a-day batch job against APIs, not a trading
@@ -37,11 +40,12 @@ trusting this table.
 
 ## Order of operations
 
-**1. Create the server.** Hetzner Cloud, **Ubuntu 24.04**, CX22 in Falkenstein
+**1. Create the server.** Hetzner Cloud, **Debian 13**, CX23 in Helsinki
 (or CPX21 in Ashburn for US hosting). Add your SSH key during creation, and do
-not enable the root-password option. Ubuntu 24.04 specifically: it ships Python
-3.12, which is what this project is developed against. Debian 12 ships 3.11 and
-would be a bet that nothing here uses 3.12 syntax.
+not enable the root-password option. Debian 13 ships Python 3.13, inside the
+range these tests run on. Ubuntu 24.04 (3.12) is equally fine where offered;
+Hetzner may list only its newest Ubuntu, which ships 3.14 and is a bet on wheel
+availability rather than on syntax.
 
 **2. Provision it.** From this repo:
 

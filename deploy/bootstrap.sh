@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# One-time provisioning for a fresh Ubuntu 24.04 box. Run as root, once.
+# One-time provisioning for a fresh Debian 13 or Ubuntu box. Run as root, once.
 #   scp -r deploy root@SERVER:/tmp/ && ssh root@SERVER 'bash /tmp/deploy/bootstrap.sh archive.example.com'
 #
-# Ubuntu 24.04 specifically, because it ships Python 3.12 -- matching what this
-# project is developed against. Debian 12 ships 3.11 and would be a gamble that
-# nothing here uses 3.12 syntax.
+# Debian 13 is the preferred image: it ships Python 3.13, which is inside the
+# range this project's tests run on. Ubuntu 24.04 (3.12) is equally good where
+# it is offered. Newer Ubuntu releases ship 3.14 and are checked, not blocked,
+# below -- the risk there is wheels, not syntax.
 #
 # Idempotent: safe to re-run after changing the domain or the units.
 set -euo pipefail
@@ -29,7 +30,7 @@ apt-get update -qq
 apt-get install -y -qq \
   python3 python3-venv python3-dev build-essential \
   git curl rsync ufw ca-certificates gnupg debian-keyring debian-archive-keyring \
-  apt-transport-https unattended-upgrades
+  apt-transport-https unattended-upgrades sudo
 
 # Fail here, loudly, rather than three minutes later inside a pip build log.
 # The archive's tests have only ever run on 3.12 and 3.13. A newer system
@@ -44,8 +45,9 @@ case "$PYVER" in
   *)
     echo
     echo "WARNING: python $PYVER is outside the tested range (3.12, 3.13)."
-    echo "Ubuntu 24.04 LTS ships 3.12 and is the supported image here."
-    echo "Continuing, but if pip starts building numpy from source, this is why."
+    echo "Debian 13 ships 3.13 and Ubuntu 24.04 ships 3.12; either is a better"
+    echo "match than this. Continuing, but if pip starts building numpy from"
+    echo "source rather than fetching a wheel, this is why."
     echo
     ;;
 esac
