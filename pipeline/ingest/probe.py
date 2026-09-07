@@ -19,7 +19,6 @@ from datetime import date, datetime, timedelta, timezone
 
 from .providers.alpaca import (
     DATA_BASE,
-    TRADING_BASE,
     AlpacaClient,
     AlpacaNotConfigured,
     AlpacaProvider,
@@ -44,7 +43,7 @@ def real_contract(client: AlpacaClient, expiry_year: int, expiry_month: int) -> 
     last = (first.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
     try:
         payload = client.get(
-            f"{TRADING_BASE}/v2/options/contracts",
+            f"{client.trading_base}/v2/options/contracts",
             {
                 "underlying_symbols": "SPY",
                 "expiration_date_gte": first.isoformat(),

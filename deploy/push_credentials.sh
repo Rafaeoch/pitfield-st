@@ -36,37 +36,15 @@ echo "found key id (${#KEY} chars) and secret (${#SECRET} chars); sending to $TA
 
 # Piped over stdin and merged server-side. Other keys in the file -- the
 # optional Anthropic key, the alert webhook, UNDERLYINGS -- are preserved.
+# Piped over stdin and merged by deploy/merge_env.py on the server. That is a
+# file rather than a heredoc on purpose: `python3 - <<PY` makes the heredoc
+# Python's own stdin, so the piped credentials would reach nobody -- which is
+# precisely what the first version of this script did, silently.
 printf 'APCA_API_KEY_ID=%s\nAPCA_API_SECRET_KEY=%s\n' "$KEY" "$SECRET" \
-  | ssh "$TARGET" 'umask 077; python3 - <<'"'"'PY'"'"'
-import sys, pathlib
-path = pathlib.Path("/etc/pitfield/env")
-incoming = {}
-for line in sys.stdin:
-    if "=" in line:
-        k, _, v = line.partition("=")
-        incoming[k.strip()] = v.strip()
-
-out, seen = [], set()
-for line in path.read_text().splitlines():
-    stripped = line.strip()
-    if "=" in stripped and not stripped.startswith("#"):
-        k = stripped.split("=", 1)[0].strip()
-        if k in incoming:
-            out.append(f"{k}={incoming[k]}")
-            seen.add(k)
-            continue
-    out.append(line)
-for k, v in incoming.items():
-    if k not in seen:
-        out.append(f"{k}={v}")
-
-path.write_text("\n".join(out) + "\n")
-print("  wrote /etc/pitfield/env")
-for k in sorted(incoming):
-    print(f"  {k} = SET ({len(incoming[k])} chars)")
-PY
-chown root:pitfield /etc/pitfield/env && chmod 0640 /etc/pitfield/env
-ls -l /etc/pitfield/env'
+  | ssh "$TARGET" 'umask 077; python3 /opt/pitfield/deploy/merge_env.py \
+      && chown root:pitfield /etc/pitfield/env \
+      && chmod 0640 /etc/pitfield/env \
+      && ls -l /etc/pitfield/env'
 
 echo
 echo "Done. Verify the pipeline can see them:"
