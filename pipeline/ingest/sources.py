@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -29,10 +30,27 @@ CACHE_DIR = Path("data/raw")
 
 # Identify ourselves. Anonymous scrapers are what get sources locked down, and
 # these particular sources are a public good worth not spoiling.
-USER_AGENT = (
-    "PitfieldStResearch/0.1 (public research archive; "
-    "contact via repository issues)"
+#
+# The "(+url)" form is not decoration. FRED sits behind Akamai, which tarpits
+# User-Agents it does not recognise: it accepts the connection and then never
+# answers, so the caller burns its entire timeout and retries make it worse
+# rather than better. Measured against fred.stlouisfed.org from a datacentre IP:
+#
+#   PitfieldStResearch/0.1                             read timeout
+#   PitfieldStResearch/0.1 (public research archive)   read timeout
+#   Mozilla/5.0 (X11; Linux x86_64) ... Chrome/126.0   read timeout
+#   PitfieldStResearch/0.1 (+https://github.com/...)   200 in 0.19s
+#
+# The parenthetical "+URL" is the long-standing crawler-identification
+# convention, and WAFs are tuned for it. A browser string is worse than useless
+# here: it is both a lie and blocked, because a browser User-Agent arriving with
+# a Python TLS fingerprint from a datacentre is exactly what bot detection looks
+# for. So we keep saying who we are, in the shape the internet expects to hear
+# it. Set PITFIELD_CONTACT_URL once the repository is public.
+CONTACT_URL = os.environ.get(
+    "PITFIELD_CONTACT_URL", "https://github.com/pitfield-st/pitfield-st"
 )
+USER_AGENT = f"PitfieldStResearch/0.1 (+{CONTACT_URL})"
 
 DEFAULT_TIMEOUT = 60
 
