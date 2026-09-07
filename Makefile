@@ -11,8 +11,7 @@ END ?= $(shell date +%Y-%m-%d)
 setup:
 	python3 -m venv $(VENV)
 	$(PIP) install --quiet --upgrade pip
-	$(PIP) install --quiet numpy scipy polars pyyaml pyarrow \
-		pandas-market-calendars skyfield pytest
+	$(PIP) install --quiet -r requirements.txt
 	cd site && npm install
 
 test:

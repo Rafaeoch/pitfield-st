@@ -16,8 +16,7 @@ if [ ! -x .venv/bin/python ]; then
   python3 -m venv .venv
 fi
 ./.venv/bin/pip install --quiet --upgrade pip
-./.venv/bin/pip install --quiet numpy scipy polars pyyaml pyarrow \
-  pandas-market-calendars skyfield pytest
+./.venv/bin/pip install --quiet -r requirements.txt
 
 if [ ! -f data/ephemeris/de440s.bsp ]; then
   echo "-- fetching JPL DE440s kernel (31MB, once)"

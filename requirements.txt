@@ -1,0 +1,23 @@
+# The single dependency list. Previously this was maintained by hand in three
+# places -- the Makefile, the deploy script and the CI workflow -- which is how
+# `requests` came to be imported by pipeline/ingest/sources.py, the base of all
+# ingestion, while being installed nowhere. It worked on the laptop only
+# because it had drifted into that venv, and the first clean Linux box failed
+# on the first import.
+numpy
+scipy
+polars
+pyarrow
+pyyaml
+pandas-market-calendars
+skyfield
+requests
+
+# Test runner. Installed on the server too: the deploy runs the suite against
+# the server's own Python before publishing.
+pytest
+
+# Only for `make notes`, and imported lazily inside the function that uses it,
+# so everything else works whether or not it is present and regardless of
+# whether ANTHROPIC_API_KEY is set.
+anthropic
