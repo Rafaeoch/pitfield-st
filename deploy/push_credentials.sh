@@ -32,7 +32,35 @@ KEY=$(value_of APCA_API_KEY_ID ALPACA_API_KEY ALPACA_KEY_ID) || {
 SECRET=$(value_of APCA_API_SECRET_KEY ALPACA_SECRET_KEY ALPACA_API_SECRET) || {
   echo "no Alpaca secret found in .env" >&2; exit 1; }
 
+# Optional. Editing .env in a real editor beats pasting into a prompt with the
+# echo off, where a paste that shows nothing invites pasting again -- which is
+# how a key once arrived three times over and failed with a 401.
+ANTHROPIC=$(value_of ANTHROPIC_API_KEY) || ANTHROPIC=""
+
 echo "found key id (${#KEY} chars) and secret (${#SECRET} chars); sending to $TARGET"
+if [ -n "$ANTHROPIC" ]; then
+  # Same repeated-paste repair as the dedicated helper.
+  ANTHROPIC=$(printf '%s' "$ANTHROPIC" | tr -d '[:space:]')
+  N=$(printf '%s' "$ANTHROPIC" | grep -o 'sk-ant-' | wc -l | tr -d ' ')
+  if [ "$N" -gt 1 ]; then
+    F=${ANTHROPIC#sk-ant-}; F="sk-ant-${F%%sk-ant-*}"
+    R=""; i=0
+    while [ "$i" -lt "$N" ]; do R="$R$F"; i=$((i+1)); done
+    if [ "$R" = "$ANTHROPIC" ]; then
+      echo "  note: the Anthropic key appears $N times in .env; using one copy"
+      ANTHROPIC="$F"
+    else
+      echo "  .env holds several different sk-ant- values; fix it and re-run" >&2
+      exit 1
+    fi
+  fi
+  if [ "${#ANTHROPIC}" -lt 80 ] || [ "${#ANTHROPIC}" -gt 200 ]; then
+    echo "  Anthropic key is ${#ANTHROPIC} chars; expected about 100-110." >&2
+    echo "  The line in .env probably picked up extra text." >&2
+    exit 1
+  fi
+  echo "also sending an Anthropic key (${#ANTHROPIC} chars)"
+fi
 
 # Piped over stdin and merged server-side. Other keys in the file -- the
 # optional Anthropic key, the alert webhook, UNDERLYINGS -- are preserved.
@@ -40,7 +68,10 @@ echo "found key id (${#KEY} chars) and secret (${#SECRET} chars); sending to $TA
 # file rather than a heredoc on purpose: `python3 - <<PY` makes the heredoc
 # Python's own stdin, so the piped credentials would reach nobody -- which is
 # precisely what the first version of this script did, silently.
-printf 'APCA_API_KEY_ID=%s\nAPCA_API_SECRET_KEY=%s\n' "$KEY" "$SECRET" \
+{
+  printf 'APCA_API_KEY_ID=%s\nAPCA_API_SECRET_KEY=%s\n' "$KEY" "$SECRET"
+  [ -n "$ANTHROPIC" ] && printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC"
+} \
   | ssh "$TARGET" 'umask 077; python3 /opt/pitfield/deploy/merge_env.py \
       && chown root:pitfield /etc/pitfield/env \
       && chmod 0640 /etc/pitfield/env \
