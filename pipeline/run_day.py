@@ -692,8 +692,12 @@ def main() -> None:
     index = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "pipeline_version": PIPELINE_VERSION,
-        "synthetic": all(r.get("source") == "SYNTHETIC" for r in rows),
-        "feed": next((r.get("feed") for r in rows if r.get("feed")), None),
+        # Over the whole archive, not one chain: `rows` is compute_day()'s
+        # per-contract list and does not exist in this scope. Each record
+        # already carries the verdict for its own day, so the index is
+        # synthetic only if every day in it is.
+        "synthetic": all(r.get("synthetic") for r in records),
+        "feed": next((r.get("feed") for r in records if r.get("feed")), None),
         "underlying": latest["underlying"],
         "latest_date": latest["date"],
         "n_days": len(records),
