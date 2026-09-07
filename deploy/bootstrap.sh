@@ -10,11 +10,12 @@
 # Idempotent: safe to re-run after changing the domain or the units.
 set -euo pipefail
 
+# The domain is optional. Without one, Caddy serves plain HTTP on the box's IP
+# so the pipeline can be proven end to end before a registrar is involved;
+# re-running with a domain later swaps in the TLS config. This is idempotent by
+# design -- provisioning should never be a one-shot you have to get right first
+# time.
 DOMAIN="${1:-}"
-if [ -z "$DOMAIN" ]; then
-  echo "usage: bootstrap.sh <domain>   (e.g. bootstrap.sh archive.pitfield.st)" >&2
-  exit 64
-fi
 [ "$(id -u)" -eq 0 ] || { echo "must run as root" >&2; exit 1; }
 
 say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
@@ -116,8 +117,13 @@ ufw allow 443/tcp >/dev/null
 ufw --force enable >/dev/null
 ufw status verbose | head -8
 
-say "Caddy site config for $DOMAIN"
-sed "s/DOMAIN_PLACEHOLDER/$DOMAIN/" "$(dirname "$0")/Caddyfile" > /etc/caddy/Caddyfile
+if [ -n "$DOMAIN" ]; then
+  say "Caddy site config for $DOMAIN (automatic TLS)"
+  sed "s/DOMAIN_PLACEHOLDER/$DOMAIN/" "$(dirname "$0")/Caddyfile" > /etc/caddy/Caddyfile
+else
+  say "Caddy site config: plain HTTP on this box's IP (no domain given)"
+  cp "$(dirname "$0")/Caddyfile.http" /etc/caddy/Caddyfile
+fi
 # Serve something immediately so the TLS challenge has a docroot.
 if [ ! -e /var/www/pitfield/current ]; then
   install -d -o pitfield -g pitfield /var/www/pitfield/releases/bootstrap
@@ -148,8 +154,9 @@ cat <<DONE
 
 Still to do, in order:
   1. Put the credentials in /etc/pitfield/env   (type them; do not paste a file)
-  2. From your laptop:  ./deploy/deploy.sh root@$DOMAIN
-  3. Point $DOMAIN's A record at this box, then Caddy issues TLS on first hit.
+  2. From your laptop:  ./deploy/deploy.sh root@THIS_BOX
+  3. When you have a domain: point its A record here, then re-run this script
+     with the domain to switch on TLS. Re-running is safe.
 
 Timers are live. With an empty credentials file the capture exits cleanly and
 records that it had no keys, rather than half-writing a session.

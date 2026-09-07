@@ -1,0 +1,27 @@
+# Pitfield St, before a domain exists: plain HTTP on the server's IP.
+#
+# Used when bootstrap.sh is run with no domain argument. Lets you confirm the
+# whole pipeline works end to end without waiting on a registrar. Re-run
+# bootstrap.sh with a domain to switch to the TLS config in ./Caddyfile.
+#
+# Deliberately no Strict-Transport-Security here. Sending HSTS over plain HTTP
+# is both ignored by browsers and a trap: if it were honoured, it would pin the
+# IP to HTTPS that is not being served.
+:80 {
+	root * /var/www/pitfield/current
+	file_server
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	header /data/*.json Cache-Control "public, max-age=300"
+	header /textures/* Cache-Control "public, max-age=604800, immutable"
+
+	handle_errors {
+		respond "{err.status_code} {err.status_text}" {err.status_code}
+	}
+}
