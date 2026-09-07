@@ -18,11 +18,40 @@ IFS= read -rs KEY
 printf '\n'
 
 [ -z "$KEY" ] && { echo "nothing entered; aborting" >&2; exit 1; }
+
+# Hidden input shows no feedback, so a paste that appears to do nothing invites
+# pasting again. That is what happened the first time this script ran: the key
+# went in three times, 324 characters, and the API returned 401. Repair the
+# obvious case rather than lecturing about it.
+KEY=$(printf '%s' "$KEY" | tr -d '[:space:]')
+OCCURRENCES=$(printf '%s' "$KEY" | grep -o 'sk-ant-' | wc -l | tr -d ' ')
+if [ "$OCCURRENCES" -gt 1 ]; then
+  FIRST=${KEY#sk-ant-}
+  FIRST="sk-ant-${FIRST%%sk-ant-*}"
+  # Only trim when the whole thing is that one key repeated; anything else is
+  # a genuinely malformed paste and should be retyped, not guessed at.
+  REPEATED=""
+  i=0
+  while [ "$i" -lt "$OCCURRENCES" ]; do REPEATED="$REPEATED$FIRST"; i=$((i + 1)); done
+  if [ "$REPEATED" = "$KEY" ]; then
+    echo "  note: the key was pasted $OCCURRENCES times; using one copy"
+    KEY="$FIRST"
+  else
+    echo "found 'sk-ant-' $OCCURRENCES times but the value is not one key repeated." >&2
+    echo "Clear the paste and try again." >&2
+    exit 1
+  fi
+fi
+
 case "$KEY" in
   sk-ant-*) ;;
   *) echo "that does not look like an Anthropic key (expected it to start sk-ant-)" >&2; exit 1;;
 esac
-[ "${#KEY}" -lt 40 ] && { echo "key looks too short (${#KEY} chars); aborting" >&2; exit 1; }
+if [ "${#KEY}" -lt 80 ] || [ "${#KEY}" -gt 200 ]; then
+  echo "key is ${#KEY} characters; an Anthropic key is around 100-110." >&2
+  echo "That usually means the paste picked up extra text. Try again." >&2
+  exit 1
+fi
 
 echo "sending a ${#KEY}-character key to $TARGET"
 printf 'ANTHROPIC_API_KEY=%s\n' "$KEY" \
@@ -32,7 +61,7 @@ printf 'ANTHROPIC_API_KEY=%s\n' "$KEY" \
 unset KEY
 
 echo
-echo "Verifying the pipeline can read it (no value shown):"
+echo "Verifying the key actually authenticates (no value shown):"
 ssh "$TARGET" 'sudo -u pitfield bash -c "
   set -a; . /etc/pitfield/env; set +a
   cd /opt/pitfield
@@ -41,7 +70,12 @@ import os
 k = os.environ.get(\\\"ANTHROPIC_API_KEY\\\", \\\"\\\")
 print(f\\\"  visible to the job: {len(k)} chars\\\" if k else \\\"  NOT visible\\\")
 try:
-    import anthropic; print(\\\"  anthropic package: installed\\\")
+    import anthropic
+    c = anthropic.Anthropic()
+    c.models.list(limit=1)
+    print(\"  AUTH OK - the API accepted this key\")
 except ImportError:
-    print(\\\"  anthropic package: MISSING\\\")
+    print(\"  anthropic package MISSING on the server\")
+except Exception as e:
+    print(f\"  AUTH FAILED: {type(e).__name__}: {str(e)[:120]}\")
 \""'
