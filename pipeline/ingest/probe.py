@@ -48,7 +48,13 @@ def real_contract(client: AlpacaClient, expiry_year: int, expiry_month: int) -> 
                 "underlying_symbols": "SPY",
                 "expiration_date_gte": first.isoformat(),
                 "expiration_date_lte": last.isoformat(),
-                "status": "all",
+                # Expired contracts are returned ONLY by status="inactive".
+                # status="all" returns a 200 with an empty list, which reads as
+                # "this key has no history" when it means "wrong parameter".
+                # The provider learned this already (alpaca.py:514); the probe
+                # kept asking the wrong question and reporting the answer as
+                # fact.
+                "status": "inactive",
                 "limit": 60,
             },
         )
