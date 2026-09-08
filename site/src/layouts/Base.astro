@@ -24,14 +24,16 @@ const nav = [
   { href: '/vol/SPY/', label: 'Surface' },
   { href: '/quality/', label: 'Quality' },
   { href: '/methodology/', label: 'Methodology' },
-  { href: '/studies/', label: 'Studies' },
   { href: '/about/', label: 'About' },
 ];
-// The studies are half the project, not a curiosity, so they sit in the nav
-// proper. The moon lives underneath them: it is one hypothesis family among
-// thirty, and the best known rather than the most important, which is the
-// reason it was never a sensible parent for the rest.
+// Behind the divider, and deliberately. The studies are real work, but they
+// are not market data, and a visitor whose first impression is astrology stops
+// reading the volatility archive as serious. The moon sits inside the studies
+// rather than beside them: it is one hypothesis family among thirty and the
+// best known rather than the most important, which is why it was never a
+// sensible parent for eclipses, Kp, sunspots and the calendar controls.
 const curiosities = [
+  { href: '/studies/', label: 'Studies' },
   { href: '/reading/', label: 'Reading' },
 ];
 
@@ -190,6 +192,9 @@ const isActive = (href: string) =>
         --step-1: 1.16rem;
         --step-2: clamp(1.24rem, 1.6vw, 1.42rem);
         --step-3: clamp(1.6rem, 3.1vw, 2.35rem);
+        /* Page titles. The existing scale topped out at a size that reads as a
+           section heading, which is why every interior page opened quietly. */
+        --step-4: clamp(2.2rem, 4.6vw, 3.5rem);
       }
 
       * { box-sizing: border-box; }
@@ -322,10 +327,26 @@ const isActive = (href: string) =>
       }
       /* Literata carries an optical-size axis. Using it is the difference
          between a headline that was set and one that was merely scaled. */
+      /* A page opens on its title, so give it room to be one. The extra space
+         beneath is deliberate: a heading crowded against its own metadata
+         reads as a label, not a title. */
       h1 {
-        font-size: var(--step-3);
-        font-variation-settings: 'opsz' 60;
-        margin: 0 0 0.7rem;
+        font-size: var(--step-4, var(--step-3));
+        font-variation-settings: 'opsz' 72;
+        letter-spacing: -0.02em;
+        line-height: 1.06;
+        margin: 0 0 1.1rem;
+        text-wrap: balance;
+      }
+      /* The metadata line under a title: quiet, tracked, and separated from
+         the body by a rule rather than by guesswork. */
+      h1 + .meta {
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--rule);
+        margin-bottom: 2.6rem;
+        font-size: 0.78rem;
+        letter-spacing: 0.05em;
+        color: var(--type-muted);
       }
       h2 {
         font-size: var(--step-2);
@@ -389,15 +410,30 @@ const isActive = (href: string) =>
          justification does not extend to the rest of the site. */
       th, td {
         text-align: left;
-        padding: 0.42rem 0.9rem 0.42rem 0;
+        /* Row height is what separates a table you read from one you squint
+           at. The rules stay hairline; the air does the work. */
+        padding: 0.72rem 1.1rem 0.72rem 0;
         border-bottom: 1px solid var(--rule);
       }
       th {
         font-weight: 500;
         color: var(--type-muted);
-        font-size: 0.82rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         white-space: nowrap;
       }
+      /* A row label in a two-column readout is not a column heading and should
+         not shout like one. */
+      tbody tr > th:first-child {
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 0.88rem;
+        color: var(--type);
+      }
+      tbody tr { transition: background-color 140ms ease; }
+      tbody tr:hover { background: color-mix(in srgb, var(--panel) 55%, transparent); }
+      tbody tr:last-child th, tbody tr:last-child td { border-bottom: none; }
       td.n, th.n {
         text-align: right;
         font-family: var(--mono);
@@ -416,15 +452,28 @@ const isActive = (href: string) =>
         padding: 1.1rem 1.25rem;
       }
 
+      /* This must be impossible to miss and must not read as an error dialog.
+         A boxed red alert says something broke. A rule with a small coloured
+         label says the page is telling you what it is. Same information,
+         different register. */
       .banner {
-        border: 1px solid var(--fault);
-        border-left-width: 3px;
-        background: color-mix(in srgb, var(--fault) 9%, var(--void));
-        padding: 0.85rem 1.1rem;
+        border: none;
+        border-left: 2px solid var(--fault);
+        background: none;
+        padding: 0.1rem 0 0.1rem 1.15rem;
         font-size: 0.9rem;
-        margin: 0 0 2rem;
+        margin: 0 0 2.6rem;
+        max-width: 60rem;
       }
-      .banner strong { color: var(--fault); }
+      .banner strong {
+        display: block;
+        color: var(--fault);
+        font-weight: 500;
+        font-size: 0.72rem;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        margin-bottom: 0.45rem;
+      }
       .banner p { max-width: none; margin: 0.35rem 0 0; }
 
       footer {
