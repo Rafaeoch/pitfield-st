@@ -17,6 +17,7 @@ interface Props {
 const { title, description, wide = false } = Astro.props;
 import Mark from '../components/Mark.astro';
 const path = Astro.url.pathname;
+const canonical = new URL(path, Astro.site ?? 'https://pitfieldstresearch.com').href;
 
 const nav = [
   { href: '/', label: 'Today' },
@@ -43,6 +44,29 @@ const isActive = (href: string) =>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>{title} — Pitfield St</title>
     {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonical} />
+
+    {/* A public archive gets cited and shared. Without these a link posted
+        anywhere renders as a bare URL, which reads as provisional. */}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Pitfield St" />
+    <meta property="og:title" content={`${title} — Pitfield St`} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL('/og.png', Astro.site ?? 'https://pitfieldstresearch.com').href} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Pitfield St — a public archive of computed options-derived volatility data" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={new URL('/og.png', Astro.site ?? 'https://pitfieldstresearch.com').href} />
+    <meta name="twitter:title" content={`${title} — Pitfield St`} />
+    {description && <meta name="twitter:description" content={description} />}
+
+    <meta name="theme-color" content="#0b1017" />
+    <meta name="author" content="Pitfield St" />
+    {/* Scholarly indexers read these; the archive is meant to be citable. */}
+    <meta name="citation_title" content={`${title} — Pitfield St`} />
+    <meta name="citation_public_url" content={canonical} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -91,10 +115,53 @@ const isActive = (href: string) =>
     </main>
 
     <footer>
-      <p>
+      <p class="foot-lede">
         Pitfield St publishes computed derivatives data and the code that
         produced it. It is not investment advice, and it makes no claim of
         predictive value.
+      </p>
+
+      <div class="foot-grid">
+        <section>
+          <h3>Source</h3>
+          <p>
+            Every number here is reproducible from the code and the public
+            inputs below. <a href="https://github.com/Rafaeoch/pitfield-st">The
+            repository</a> holds the pipeline, the test suite and the frozen
+            pre-registration.
+          </p>
+        </section>
+
+        <section>
+          <h3>Public inputs</h3>
+          <p>
+            Index history and the Treasury curve from
+            <a href="https://fred.stlouisfed.org/">FRED</a>, geomagnetic Kp from
+            <a href="https://kp.gfz-potsdam.de/">GFZ Potsdam</a>, sunspot numbers
+            from <a href="https://www.sidc.be/SILSO/">SILSO, Royal Observatory of
+            Belgium</a>, planetary and lunar positions from
+            <a href="https://naif.jpl.nasa.gov/naif/">JPL DE440s</a>, literature
+            from <a href="https://openalex.org/">OpenAlex</a>. Options chains are
+            licensed and are never redistributed; only values derived from them
+            are published.
+          </p>
+        </section>
+
+        <section>
+          <h3>Citing this archive</h3>
+          <p>
+            Cite the dated record rather than the site, since the archive grows
+            and is never overwritten:<br />
+            <code>Pitfield St, <em>&lt;page&gt;</em>, retrieved
+            &lt;date&gt;, pitfieldstresearch.com</code>
+          </p>
+        </section>
+      </div>
+
+      <p class="foot-fine">
+        Code released under the MIT licence. Published figures may be reused
+        with attribution. Nothing here is an offer, a solicitation, or a
+        recommendation to trade.
       </p>
     </footer>
 
@@ -353,6 +420,35 @@ const isActive = (href: string) =>
         padding: 1.6rem clamp(1rem, 4vw, 3rem) 3rem;
       }
       footer p { color: var(--type-muted); font-size: 0.86rem; margin: 0; }
+      .foot-lede { max-width: 62ch; }
+      .foot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 1.6rem 2.4rem;
+        margin: 1.8rem 0 1.4rem;
+        padding-top: 1.4rem;
+        border-top: 1px solid var(--rule);
+      }
+      .foot-grid h3 {
+        font-size: 0.72rem;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--type-muted);
+        margin: 0 0 0.5rem;
+        font-weight: 500;
+      }
+      .foot-grid p { font-size: 0.82rem; line-height: 1.55; }
+      .foot-grid code {
+        font-size: 0.78rem;
+        color: var(--type);
+        background: none;
+        padding: 0;
+      }
+      .foot-fine {
+        padding-top: 1.1rem;
+        border-top: 1px solid var(--rule);
+        font-size: 0.78rem;
+      }
 
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {

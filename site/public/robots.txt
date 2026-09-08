@@ -1,0 +1,8 @@
+# Pitfield St — a public research archive. Indexing is welcome.
+User-agent: *
+Allow: /
+
+# The archive JSON is the published record and is meant to be fetched
+# directly. It is not a real-time feed: files change once per trading day,
+# after the close.
+Sitemap: https://pitfieldstresearch.com/sitemap.xml
