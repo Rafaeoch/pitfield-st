@@ -24,12 +24,14 @@ const nav = [
   { href: '/vol/SPY/', label: 'Surface' },
   { href: '/quality/', label: 'Quality' },
   { href: '/methodology/', label: 'Methodology' },
+  { href: '/studies/', label: 'Studies' },
   { href: '/about/', label: 'About' },
 ];
-// Everything celestial lives under /moon/. One entry in the nav, behind the
-// divider, so the archive still reads as the primary work.
+// The studies are half the project, not a curiosity, so they sit in the nav
+// proper. The moon lives underneath them: it is one hypothesis family among
+// thirty, and the best known rather than the most important, which is the
+// reason it was never a sensible parent for the rest.
 const curiosities = [
-  { href: '/moon/', label: 'Moon' },
   { href: '/reading/', label: 'Reading' },
 ];
 
@@ -236,7 +238,7 @@ const isActive = (href: string) =>
         gap: 1.2rem 2.5rem;
         align-items: center;
         justify-content: space-between;
-        padding: 1.15rem clamp(1rem, 4vw, 3rem);
+        padding: 1.5rem clamp(1rem, 4vw, 3rem);
         border-bottom: 1px solid var(--rule);
       }
 
@@ -268,28 +270,35 @@ const isActive = (href: string) =>
         margin-top: 0.12rem;
       }
 
+      /* Small, widely spaced, low contrast. A navigation bar that competes
+         with the page is the clearest sign nobody edited it: the firms this
+         is measured against give theirs seven quiet words and a lot of air.
+         The tracking is what does the work, not the size. */
       nav ul {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 1.4rem;
+        gap: 2.1rem;
         list-style: none;
         margin: 0;
         padding: 0;
-        font-size: 0.92rem;
+        font-size: 0.76rem;
+        letter-spacing: 0.075em;
+        text-transform: uppercase;
       }
       nav a {
         color: var(--type-muted);
         text-decoration: none;
-        padding-bottom: 2px;
+        padding-bottom: 3px;
         border-bottom: 1px solid transparent;
+        transition: color 160ms ease, border-color 160ms ease;
       }
       nav a:hover { color: var(--type); }
       nav a[aria-current='page'] {
-        color: var(--amber);
+        color: var(--type);
         border-bottom-color: var(--amber);
       }
-      /* The celestial study sits behind a divider and reads as secondary. If a
+      /* Reading sits behind a divider and reads as secondary. If a
          visitor's first impression is astrology, the volatility work stops
          reading as serious. */
       .nav-group {
@@ -302,7 +311,7 @@ const isActive = (href: string) =>
       main {
         max-width: 78rem;
         margin: 0 auto;
-        padding: clamp(1.6rem, 4vw, 3.4rem) clamp(1rem, 4vw, 3rem) 5rem;
+        padding: clamp(2.4rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem) 7rem;
       }
       main.wide { max-width: none; padding-left: 0; padding-right: 0; }
 
@@ -321,9 +330,12 @@ const isActive = (href: string) =>
       h2 {
         font-size: var(--step-2);
         font-variation-settings: 'opsz' 28;
-        margin: 3.2rem 0 0.9rem;
+        /* Space above a heading is what separates sections; space below is
+           what glues the heading to its own text. The gap between them should
+           be lopsided, and generously so. */
+        margin: 4.6rem 0 1rem;
       }
-      h3 { font-size: var(--step-1); margin: 2rem 0 0.5rem; }
+      h3 { font-size: var(--step-1); margin: 2.6rem 0 0.6rem; }
 
       /* A short amber rule above each section heading. One quiet repeated
          gesture, doing the work that a heavier hierarchy would need. */

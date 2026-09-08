@@ -20,8 +20,8 @@ export const GET: APIRoute = ({ site }) => {
     ['/vol/SPY/', '0.9'],
     ['/quality/', '0.8'],
     ['/methodology/', '0.8'],
-    ['/moon/', '0.7'],
-    ['/moon/study/', '0.7'],
+    ['/studies/', '0.8'],
+    ['/studies/moon/', '0.6'],
     ['/reading/', '0.6'],
     ['/about/', '0.5'],
   ];
