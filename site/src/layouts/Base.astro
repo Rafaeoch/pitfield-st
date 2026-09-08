@@ -42,7 +42,7 @@ const isActive = (href: string) =>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>{title} — Pitfield St</title>
+    <title>{title} · Pitfield St</title>
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={canonical} />
 
@@ -50,22 +50,22 @@ const isActive = (href: string) =>
         anywhere renders as a bare URL, which reads as provisional. */}
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Pitfield St" />
-    <meta property="og:title" content={`${title} — Pitfield St`} />
+    <meta property="og:title" content={`${title} · Pitfield St`} />
     {description && <meta property="og:description" content={description} />}
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={new URL('/og.png', Astro.site ?? 'https://pitfieldstresearch.com').href} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Pitfield St — a public archive of computed options-derived volatility data" />
+    <meta property="og:image:alt" content="Pitfield St, a public archive of computed options-derived volatility data" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={new URL('/og.png', Astro.site ?? 'https://pitfieldstresearch.com').href} />
-    <meta name="twitter:title" content={`${title} — Pitfield St`} />
+    <meta name="twitter:title" content={`${title} · Pitfield St`} />
     {description && <meta name="twitter:description" content={description} />}
 
     <meta name="theme-color" content="#0b1017" />
     <meta name="author" content="Pitfield St" />
     {/* Scholarly indexers read these; the archive is meant to be citable. */}
-    <meta name="citation_title" content={`${title} — Pitfield St`} />
+    <meta name="citation_title" content={`${title} · Pitfield St`} />
     <meta name="citation_public_url" content={canonical} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

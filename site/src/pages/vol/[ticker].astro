@@ -74,7 +74,7 @@ const chartData = {
   </div>
   <p class="small muted">
     IV rank and percentile are computed against this ticker's own trailing
-    history in the archive — {int(m.iv_history_n)} days so far, so read them as
+    history in the archive, {int(m.iv_history_n)} days so far, so read them as
     provisional until the window fills.
   </p>
 
@@ -125,7 +125,7 @@ const chartData = {
       These figures use the <span class="num">{agg.gex_sign_convention}</span>
       convention: dealers long gamma from calls, short from puts. That assumes
       customers buy puts and sell calls, which is a generalisation about flow,
-      not something we can observe — no dealer's book is public. Open interest is
+      not something we can observe, no dealer's book is public. Open interest is
       previous-day settled and is timestamped
       <span class="num">{agg.oi_effective_date}</span>, not to today.
     </p>
@@ -182,7 +182,7 @@ const chartData = {
     </table>
   </div>
   <p class="small muted">
-    {pct(cov.excluded_share, 1)}% of the chain was excluded from the fits —
+    {pct(cov.excluded_share, 1)}% of the chain was excluded from the fits,
     zero-bid, crossed, no open interest, beyond the moneyness cut, or not
     invertible. The exclusion rate is published because it is part of the
     result: a surface fitted to a third of a chain is a different object from one

@@ -23,16 +23,16 @@ try {
 
 const tiers = [
   {
-    name: 'Tier 1 — plausible causal mechanism',
+    name: 'Tier 1: plausible causal mechanism',
     note: 'Treated seriously. These are not jokes.',
     items: [
       ['geomagnetic_storms', 'Kp ≥ 7 from GFZ Potsdam, back to 1932. Krivelyova & Robotti (Atlanta Fed WP 2003-5): storms affect mood, mood affects risk appetite, and people misattribute a bad mood to bad economic prospects.'],
-      ['seasonal_affective', 'Kamstra, Kramer & Levi — length of night by latitude.'],
+      ['seasonal_affective', 'Kamstra, Kramer & Levi, length of night by latitude.'],
       ['daylight_saving', 'Clock-change weekends.'],
     ],
   },
   {
-    name: 'Tier 2 — cyclical, no mechanism',
+    name: 'Tier 2: cyclical, no mechanism',
     note: null,
     items: [
       ['lunar_phase', 'Eight phase buckets. Yuan & Zheng give a real paper to replicate against.'],
@@ -45,20 +45,20 @@ const tiers = [
     ],
   },
   {
-    name: 'Tier 3 — pure astrology',
+    name: 'Tier 3: pure astrology',
     note: 'Saturn lives here.',
     items: [
-      ['jupiter_saturn_conjunction', 'The “great conjunction”, ~20y — the most-cited planetary market cycle.'],
+      ['jupiter_saturn_conjunction', 'The “great conjunction”, ~20y, the most-cited planetary market cycle.'],
       ['saturn_return', '~29.5y orbital period.'],
       ['saturn_uranus_aspect / saturn_pluto_aspect', 'Mundane astrology’s crisis aspects.'],
-      ['mercury_retrograde', 'About three times a year — the highest event count in the study, so the best-powered test in it. It gets the fairest possible shot, and that is worth saying out loud.'],
+      ['mercury_retrograde', 'About three times a year, the highest event count in the study, so the best-powered test in it. It gets the fairest possible shot, and that is worth saying out loud.'],
       ['venus_retrograde / mars_retrograde', null],
       ['planetary_aspects_generic', 'Conjunction, sextile, square, trine, opposition; ±3° orb, all pairs.'],
-      ['bradley_siderograph', 'Bradley (1948), an actual weighted sum over aspect angles producing a daily curve. Fully computable, and it claims to mark turning points rather than direction — a specificity that makes it genuinely falsifiable, which most of this is not.'],
+      ['bradley_siderograph', 'Bradley (1948), an actual weighted sum over aspect angles producing a daily curve. Fully computable, and it claims to mark turning points rather than direction, a specificity that makes it genuinely falsifiable, which most of this is not.'],
     ],
   },
   {
-    name: 'Tier 4 — calendar effects, as a control group',
+    name: 'Tier 4: calendar effects, as a control group',
     note: 'The honest contrast. Some have survived scrutiny better than the celestial set, and including them shows the harness can discriminate.',
     items: [
       ['january_effect, sell_in_may, turn_of_month, day_of_week, santa_claus_rally, triple_witching, opex_week', null],
@@ -93,7 +93,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     A pre-registered test of roughly thirty celestial and calendar hypotheses
     against equity returns, every one of them run through the same statistical
     harness, corrected for multiple comparisons across the whole family, and
-    reported including the null results — which is to say, mostly null results.
+    reported including the null results, which is most of them.
   </p>
 
   <nav class="jump" aria-label="Celestial pages">
@@ -122,7 +122,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
       <h2>What happened</h2>
       <p>
         The harness ran over {study.series.n_sessions.toLocaleString()} sessions
-        of the {study.series.label}, {study.series.start} to {study.series.end} —
+        of the {study.series.label}, {study.series.start} to {study.series.end},
         {' '}{study.sample_span_years} years. Every hypothesis got the same
         treatment: mean return by bucket against its complement, Newey–West HAC
         standard errors, a stationary bootstrap interval, and correction across
@@ -149,17 +149,17 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
         <table>
           <thead><tr><th>Tier</th><th class="n">Tests</th><th class="n">p &lt; 0.05</th><th class="n">Rate</th></tr></thead>
           <tbody>
-            <tr><th>1 — plausible mechanism</th><td class="n">{byTier[1]?.n}</td><td class="n">{byTier[1]?.sig}</td><td class="n">{pct(byTier[1]?.sig, byTier[1]?.n)}%</td></tr>
-            <tr><th>2 — cyclical, no mechanism</th><td class="n">{byTier[2]?.n}</td><td class="n">{byTier[2]?.sig}</td><td class="n">{pct(byTier[2]?.sig, byTier[2]?.n)}%</td></tr>
-            <tr><th>3 — astrology</th><td class="n">{byTier[3]?.n}</td><td class="n">{byTier[3]?.sig}</td><td class="n">{pct(byTier[3]?.sig, byTier[3]?.n)}%</td></tr>
-            <tr><th>4 — calendar controls</th><td class="n">{byTier[4]?.n}</td><td class="n">{byTier[4]?.sig}</td><td class="n">{pct(byTier[4]?.sig, byTier[4]?.n)}%</td></tr>
+            <tr><th>1, plausible mechanism</th><td class="n">{byTier[1]?.n}</td><td class="n">{byTier[1]?.sig}</td><td class="n">{pct(byTier[1]?.sig, byTier[1]?.n)}%</td></tr>
+            <tr><th>2, cyclical, no mechanism</th><td class="n">{byTier[2]?.n}</td><td class="n">{byTier[2]?.sig}</td><td class="n">{pct(byTier[2]?.sig, byTier[2]?.n)}%</td></tr>
+            <tr><th>3, astrology</th><td class="n">{byTier[3]?.n}</td><td class="n">{byTier[3]?.sig}</td><td class="n">{pct(byTier[3]?.sig, byTier[3]?.n)}%</td></tr>
+            <tr><th>4, calendar controls</th><td class="n">{byTier[4]?.n}</td><td class="n">{byTier[4]?.sig}</td><td class="n">{pct(byTier[4]?.sig, byTier[4]?.n)}%</td></tr>
           </tbody>
         </table>
       </div>
       <p class="small muted">
         Tier 3, the astrology, produced fewer apparent hits than chance alone
         would give you at this many tests. Tier 4, the calendar effects, produced
-        the most — which is the result that says the harness can tell the
+        the most, which is the result that says the harness can tell the
         difference, and the reason the control group is in the study at all.
       </p>
 
@@ -181,7 +181,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
           {' '}{study.sample_span_years}-year sample that is
           {' '}<span class="num">{study.cycles_in_sample?.metonic_cycle}</span> and
           {' '}<span class="num">{study.cycles_in_sample?.saros_cycle}</span> complete
-          cycles. Splitting either into terciles does not sample a cycle — it cuts
+          cycles. Splitting either into terciles does not sample a cycle, it cuts
           history into three long eras and asks whether they differed. They did.
         </li>
         <li>
@@ -208,7 +208,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
 
       <h2>The leaderboard</h2>
       <p class="small muted">
-        Every test, ranked by raw p-value — the one place on this site where
+        Every test, ranked by raw p-value, the one place on this site where
         anything is sorted by significance, and only to show what that sorting
         would have told you. Effects and intervals in basis points per day.
         MDE is the smallest effect this test could have detected at 80% power.
@@ -239,7 +239,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
   <h2>The hypothesis list</h2>
   <p>
     Ordered by prior plausibility, not by p-value. That ordering is the
-    intellectual content of the study, and results will be displayed in it too —
+    intellectual content of the study, and results will be displayed in it too,
     sorting a leaderboard by significance is how you turn a multiple-comparisons
     exercise back into a fishing expedition.
   </p>
@@ -261,7 +261,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
 
   <h2>How every hypothesis will be treated</h2>
   <p>
-    Identically. No per-hypothesis tuning — that is the whole design. Daily
+    Identically. No per-hypothesis tuning, which is the whole design. Daily
     index log returns plus forward 5-day and 21-day windows; mean return by bucket
     against its complement; Newey–West HAC standard errors; stationary bootstrap
     confidence intervals with a block length chosen to preserve autocorrelation;

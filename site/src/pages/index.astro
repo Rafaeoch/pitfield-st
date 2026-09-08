@@ -20,7 +20,26 @@ const counters = [
   wide
 >
   <section class="hero">
-    <VolSurface height="64vh" />
+    <VolSurface height="78vh" />
+
+    <div class="hero-copy">
+      <h1 class="hero-title">
+        The volatility surface,<br />computed in the open.
+      </h1>
+      <p class="hero-sub">
+        Every trading day: option chains in, forwards from put and call parity,
+        arbitrage-free surfaces out. Published with the code that produced them
+        and the quality report saying what had to be thrown away.
+      </p>
+      {latest && (
+        <p class="hero-ribbon">
+          <span><b>{latest.underlying}</b> {latest.spot?.toFixed(2)}</span>
+          <span>IV<sub>30</sub> {pct(latest.metrics?.iv_30)}%</span>
+          <span>{latest.arbitrage?.n_expiries_fitted} expiries</span>
+          <span class="ribbon-time">{formatSnapshotET(latest.snapshot_ts)}</span>
+        </p>
+      )}
+    </div>
   </section>
 
   <div class="below">
@@ -34,8 +53,8 @@ const counters = [
     {!latest?.synthetic && latest?.feed && latest.feed !== 'opra' && (
       <p class="synthetic-note">
         <span class="dot" aria-hidden="true"></span>
-        Computed from the <code>{latest.feed}</code> feed — derived quotes, not
-        the OPRA consolidated tape.
+        Computed from the <code>{latest.feed}</code> feed. These are derived
+        quotes, not the OPRA consolidated tape.
         <a href="/about/">What that means</a>
       </p>
     )}
@@ -56,8 +75,8 @@ const counters = [
       that produced them. The archive grows daily and nothing is ever deleted or
       revised in place. Alongside it sits a pre-registered study testing roughly
       thirty celestial and calendar hypotheses against equity returns through the
-      same statistical harness — a standing demonstration of how readily data of
-      exactly this kind will fool you if you let it.
+      same statistical harness. It stands as a demonstration of how readily
+      data of this kind will fool you if you let it.
     </p>
 
     <VolHistory history={index?.history ?? []} />
@@ -100,7 +119,82 @@ const counters = [
 </Base>
 
 <style>
-  .hero { margin: 0; }
+  .hero { margin: 0; position: relative; }
+
+  /* The surface was the whole hero, which meant arriving on a rotating chart
+     with nothing telling you what it was. The copy sits over it rather than
+     above it, so the first thing on screen is a claim and its evidence at the
+     same time. Pointer events pass through to the canvas, which stays
+     draggable underneath. */
+  .hero-copy {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: min(46rem, 92vw);
+    /* Bottom padding clears the surface's own axis legend, which sits in the
+       figure's caption. Anchored flush to the bottom the copy lands straight
+       on top of it. */
+    padding: 0 clamp(1rem, 4vw, 3rem) clamp(4.4rem, 9vh, 5.6rem);
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--void) 92%, transparent) 0%,
+      color-mix(in srgb, var(--void) 74%, transparent) 55%,
+      transparent 100%
+    );
+  }
+  .hero-copy > * { pointer-events: auto; }
+
+  .hero-title {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(2.1rem, 5.4vw, 4.1rem);
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.9rem;
+    color: var(--type);
+    text-wrap: balance;
+  }
+  .hero-sub {
+    max-width: 34rem;
+    margin: 0 0 1.3rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--type-muted);
+  }
+
+  .hero-ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 1.6rem;
+    margin: 0;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--type-muted);
+  }
+  .hero-ribbon b { color: var(--type); font-weight: 500; letter-spacing: 0.04em; }
+  .hero-ribbon sub { font-size: 0.72em; }
+  .ribbon-time { margin-left: auto; opacity: 0.75; }
+
+  /* Enter once, quietly. Anything more insistent competes with the surface,
+     which is the thing actually worth looking at. */
+  .hero-title, .hero-sub, .hero-ribbon { animation: rise 900ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .hero-sub { animation-delay: 90ms; }
+  .hero-ribbon { animation-delay: 170ms; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-title, .hero-sub, .hero-ribbon { animation: none; }
+  }
+
+  @media (max-width: 720px) {
+    .hero-copy { position: static; width: auto; background: none; padding-top: 1.4rem; }
+  }
 
   .below {
     max-width: 78rem;
@@ -123,7 +217,7 @@ const counters = [
     background: var(--fault); flex: none;
   }
 
-  /* The spec's counter line, with hairline separators rather than middle dots —
+  /* The spec's counter line, with hairline separators rather than middle dots,
      the design direction rules those out elsewhere on the site. */
   .counters {
     display: flex;

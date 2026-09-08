@@ -37,7 +37,7 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
     <header class="head">
       <h1>The Moon</h1>
       <p class="lede">
-        Rendered from JPL DE440s. The terminator is not drawn — the light sits
+        Rendered from JPL DE440s. The terminator is not drawn, the light sits
         along the true Moon-to-Sun vector and the camera along the true
         Moon-to-Earth vector, so the phase is a consequence of the geometry
         rather than a parameter. Libration is applied as a real rotation, which
@@ -59,7 +59,7 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
 
     <p class="small muted note">
       The six figures above follow the date slider. The next new and full moon
-      timestamps do not — they are always the next ones from today, since a
+      timestamps do not, they are always the next ones from today, since a
       &ldquo;next full moon&rdquo; relative to a date two years ago is a fact
       about the past dressed up as a forecast.
     </p>
@@ -68,7 +68,7 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
       Distance sits at the {m.distance_percentile != null ? (m.distance_percentile * 100).toFixed(0) : '—'}th
       percentile of the perigee–apogee range (356,500–406,700 km). The next new
       and full moons are found by searching for the elongation crossing, not by
-      adding 29.53 days to the last one — that accumulates error.
+      adding 29.53 days to the last one, that accumulates error.
     </p>
 
     <h2>Scrubbing back</h2>
@@ -76,7 +76,7 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
       The slider under the render moves through four years of daily geometry,
       two back and two forward. Every frame is an ephemeris lookup rather than
       an interpolation, so a date last spring shows the Moon as it actually
-      was — including the libration that had rolled a different stretch of the
+      was, including the libration that had rolled a different stretch of the
       limb into view. Run a month to watch a full lunation, and the wobble is
       obvious: the face is not fixed.
     </p>
@@ -108,10 +108,10 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
         hypotheses.
       </p>
       <p>
-        Beside it, the number that usually matters more — the
+        Beside it, the number that usually matters more, the
         <strong>minimum detectable effect</strong> at 80% power given the
         observations that exist. If detecting a plausible lunar effect would
-        need more market history than has ever been recorded, that is the
+        need more market history than has ever been recorded. That is the
         finding, and it gets stated as plainly as any rejection would.
       </p>
       <p class="tiny muted">

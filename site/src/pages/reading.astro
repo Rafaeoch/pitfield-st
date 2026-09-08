@@ -18,7 +18,7 @@ const withPapers = sections.filter((s: any) => s.papers?.length);
 >
   <h1>Reading</h1>
   <p class="lede">
-    Every method on this site came from somewhere. This is where — assembled
+    Every method on this site came from somewhere. This is where, assembled
     from OpenAlex, grouped by the part of the pipeline each body of work
     supports, and ordered by relevance rather than by citation count.
   </p>
@@ -106,7 +106,7 @@ const withPapers = sections.filter((s: any) => s.papers?.length);
         Each expanded entry carries a short note on how the work bears on
         options markets. Those notes are written by Claude
         {lit.note_model && <span class="num"> ({lit.note_model})</span>} from
-        the paper's <em>abstract</em> — not from the paper.
+        the paper's <em>abstract</em>, not from the paper.
       </p>
       <p>
         That distinction is the whole caveat. An abstract is a few hundred words
@@ -116,7 +116,7 @@ const withPapers = sections.filter((s: any) => s.papers?.length);
         actually showed, or whether the conclusion survived contact with
         referees. Every entry links to the paper so you can go and check, and
         the honest use of this page is as an index that tells you what to read
-        next — not as a substitute for reading it.
+        next, not as a substitute for reading it.
       </p>
       <p class="small muted">
         {lit.n_notes ?? 0} of {lit.n_papers} papers carry a note. Full abstracts
@@ -128,7 +128,7 @@ const withPapers = sections.filter((s: any) => s.papers?.length);
       <h2>On the sourcing</h2>
       <p>
         Not Google Scholar. It has no public API, its terms forbid programmatic
-        access, and it blocks automated requests within a handful of calls — a
+        access, and it blocks automated requests within a handful of calls, a
         page built on it would break quietly and deserve to. OpenAlex is an open
         catalogue of some 250 million works, CC0 licensed, and built to be
         queried.
@@ -255,7 +255,7 @@ const withPapers = sections.filter((s: any) => s.papers?.length);
   .source { margin: 0.9rem 0 0; max-width: none; font-size: 0.9rem; }
   .source .doi { margin-left: 0.9rem; color: var(--type-muted); font-size: 0.8rem; }
   .marks .hasnote { color: var(--amber); }
-  .byline .year, .byline .venue { margin-left: 0.8rem; }
+  .byline .year .byline .venue { margin-left: 0.8rem; }
   .byline .venue { font-style: italic; }
 
   .excerpt {

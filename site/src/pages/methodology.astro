@@ -37,7 +37,7 @@ const eq = {
   <h1>Methodology</h1>
   <p class="lede">
     Every metric published on this site traces to a formula on this page. Where
-    a choice was made — a convention, a filter, an assumption about flow — it is
+    a choice was made, a convention, a filter, an assumption about flow, it is
     named here rather than buried in code.
   </p>
 
@@ -116,7 +116,7 @@ const eq = {
     price falls outside the no-arbitrage bounds has no implied volatility and is
     dropped and counted rather than coerced to a number. Each expiry is then
     calibrated by constrained weighted least squares (SLSQP), seeded from the
-    previous day's parameters — surfaces move slowly, and a warm start keeps the
+    previous day's parameters, surfaces move slowly, and a warm start keeps the
     parameter time series stable instead of hopping between equivalent optima.
   </p>
   <p>
@@ -128,8 +128,8 @@ const eq = {
 
   <h2 id="arbitrage">3. Arbitrage conditions</h2>
   <p>
-    Both conditions are checked on every surface, every day, and the results —
-    including the failures — are published.
+    Both conditions are checked on every surface, every day, and the results,
+    including the failures, are published.
   </p>
   <h3>Butterfly (Durrleman)</h3>
   <Fragment set:html={tex(eq.durrleman)} />
@@ -149,7 +149,7 @@ const eq = {
     <p>
       Both are checked only across the log-moneyness range where that expiry had
       quotable contracts, and the surface is published only over the same range.
-      This is not a way of hiding violations — it is the difference between a
+      This does not hide violations. It is the difference between a
       violation and an artefact. A seven-day expiry has no quotes thirty percent
       out of the money, so its fitted value there is pure extrapolation, and
       comparing that extrapolation against a longer expiry that does have quotes
@@ -199,7 +199,7 @@ const eq = {
   <p>
     Total variance is the quantity that is additive in time. Interpolating
     volatility directly is wrong and produces a term structure that sags between
-    listed expiries — it is a common tell. We do not extrapolate beyond the last
+    listed expiries. That is a common tell. We do not extrapolate beyond the last
     listed expiry; a target outside the quoted range returns null.
   </p>
   <h3>Skew</h3>
@@ -246,7 +246,7 @@ const eq = {
     <h3>The sign convention is an assumption, not a fact</h3>
     <p>
       The common convention treats dealers as long gamma from calls and short
-      from puts. That assumes customers buy puts and sell calls — a
+      from puts. That assumes customers buy puts and sell calls, a
       generalisation about flow, not something anyone can observe, since no
       dealer's book is public. It is implemented as a configuration flag, the
       chosen convention travels with the number in the output schema, and it is
@@ -266,7 +266,7 @@ const eq = {
   <ul>
     <li>zero-bid, or crossed (bid above ask);</li>
     <li>carrying no open interest;</li>
-    <li>an adjusted contract — a non-standard deliverable prices off something else and will wreck a calibration silently;</li>
+    <li>an adjusted contract, a non-standard deliverable prices off something else and will wreck a calibration silently;</li>
     <li>beyond <span class="num">|k| &gt; 1.5</span>;</li>
     <li>on the in-the-money side, where value is dominated by intrinsic and implied volatility is noise amplified by a small vega;</li>
     <li>not invertible to a finite implied volatility.</li>
@@ -296,7 +296,7 @@ const eq = {
         Every price below was computed from Alpaca's <code>{latest.feed}</code>
         feed, an estimate rather than the OPRA consolidated NBBO. The forward
         extraction, the calibration and the arbitrage checks are unchanged and
-        the arithmetic is identical — but the inputs are not the official record
+        the arithmetic is identical, but the inputs are not the official record
         of what traded, the spreads are not ones you could have transacted
         against, and a surface fitted to them inherits whatever bias the
         estimator carries. Treat the levels as indicative and the shapes as
@@ -304,9 +304,9 @@ const eq = {
       </li>
     )}
     <li>
-      Expiries are fitted independently. A global SSVI fit across maturities —
+      Expiries are fitted independently. A global SSVI fit across maturities,
       which would enforce the calendar condition by construction rather than
-      checking it after the fact — is specified but not yet built.
+      checking it after the fact, is specified but not yet built.
     </li>
     <li>
       Open interest lags by a day and cannot be corrected, only labelled.
