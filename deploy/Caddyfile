@@ -4,6 +4,12 @@
 #
 # DOMAIN_PLACEHOLDER is substituted by bootstrap.sh.
 
+# www redirects to the apex rather than serving a second copy. One canonical
+# URL for a public archive: citations, links and the certificate all agree.
+www.DOMAIN_PLACEHOLDER {
+	redir https://DOMAIN_PLACEHOLDER{uri} permanent
+}
+
 DOMAIN_PLACEHOLDER {
 	root * /var/www/pitfield/current
 	file_server

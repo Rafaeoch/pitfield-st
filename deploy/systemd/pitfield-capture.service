@@ -15,6 +15,14 @@ WorkingDirectory=/opt/pitfield
 # rather than refusing to start with a systemd error nobody reads.
 EnvironmentFile=-/etc/pitfield/env
 Environment=PITFIELD_WWW=/var/www/pitfield
+# ProtectHome=true below denies the home directory, and Astro's telemetry tries
+# to read and write a config file there during `npm run build`. It throws, the
+# build dies, and the publish step fails with "cannot stat site/dist/." -- so
+# every scheduled publish breaks while the deploy, run without this hardening,
+# succeeds. Point HOME somewhere writable and switch the telemetry off: a
+# server publishing a research archive has no business phoning home anyway.
+Environment=HOME=/opt/pitfield
+Environment=ASTRO_TELEMETRY_DISABLED=1
 ExecStart=/opt/pitfield/scripts/daily_capture.sh
 TimeoutStartSec=30min
 
