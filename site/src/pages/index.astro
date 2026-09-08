@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import VolSurface from '../components/VolSurface.astro';
 import { getIndex, getLatest, formatSnapshotET, int, pct } from '../lib/archive';
+import VolHistory from '../components/VolHistory.astro';
 
 const index = getIndex();
 const latest = getLatest();
@@ -58,6 +59,8 @@ const counters = [
       same statistical harness — a standing demonstration of how readily data of
       exactly this kind will fool you if you let it.
     </p>
+
+    <VolHistory history={index?.history ?? []} />
 
     {latest && (
       <dl class="readout">
@@ -152,13 +155,27 @@ const counters = [
     border-bottom: 1px solid var(--rule);
   }
   .readout dt {
-    font-size: 0.8rem;
+    /* Small caps against a large figure: the label recedes, the number reads
+       first. How a terminal or a tear sheet sets a data band, and the reason
+       it looks considered rather than merely tidy. */
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
     color: var(--type-muted);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.45rem;
   }
   .readout dd {
     margin: 0;
-    font-size: 1.15rem;
+    font-size: 1.5rem;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    /* Tabular figures so the column does not shimmer as values change. */
     font-variant-numeric: tabular-nums;
+  }
+  .readout dd .ok,
+  .readout dd .fault {
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    vertical-align: 0.18em;
   }
 </style>

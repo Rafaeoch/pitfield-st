@@ -1,0 +1,282 @@
+---
+/**
+ * Implied against realized, with the spread between them shaded.
+ *
+ * This is the chart the archive exists to produce. The variance risk premium —
+ * implied sitting above realized most of the time, and inverting violently
+ * when it does not — is the single most robust finding in the options
+ * literature, and it is visible here without a model, a fit or a claim.
+ *
+ * Drawn as inline SVG rather than through a plotting library: the whole series
+ * is a few hundred points, the shapes are two paths and a band, and shipping a
+ * charting dependency to draw them would cost more bytes than the data.
+ */
+interface Point {
+  date: string;
+  iv_30?: number | null;
+  rv_cc_21?: number | null;
+}
+interface Props {
+  history: Point[];
+  height?: number;
+}
+const { history, height = 260 } = Astro.props;
+
+const rows = (history ?? []).filter(
+  (d) => Number.isFinite(d.iv_30) && Number.isFinite(d.rv_cc_21)
+);
+
+const W = 900;
+const H = height;
+const PAD = { top: 18, right: 16, bottom: 26, left: 44 };
+const plotW = W - PAD.left - PAD.right;
+const plotH = H - PAD.top - PAD.bottom;
+
+const values = rows.flatMap((d) => [d.iv_30 as number, d.rv_cc_21 as number]);
+const lo = values.length ? Math.min(...values) : 0;
+const hi = values.length ? Math.max(...values) : 0.3;
+// Round outward to a clean 2.5-point grid so the axis reads as a scale.
+const step = 0.025;
+const yMin = Math.max(0, Math.floor(lo / step) * step);
+const yMax = Math.ceil(hi / step) * step;
+
+const x = (i: number) =>
+  PAD.left + (rows.length < 2 ? plotW / 2 : (i / (rows.length - 1)) * plotW);
+const y = (v: number) =>
+  PAD.top + plotH - ((v - yMin) / (yMax - yMin || 1)) * plotH;
+
+const line = (key: 'iv_30' | 'rv_cc_21') =>
+  rows.map((d, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(d[key] as number).toFixed(1)}`).join('');
+
+// The band is implied-forward then realized-backward: a closed ribbon whose
+// thickness is the premium itself.
+const band =
+  rows.map((d, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(d.iv_30 as number).toFixed(1)}`).join('') +
+  rows
+    .slice()
+    .reverse()
+    .map((d, i) => {
+      const idx = rows.length - 1 - i;
+      return `L${x(idx).toFixed(1)},${y(d.rv_cc_21 as number).toFixed(1)}`;
+    })
+    .join('') +
+  'Z';
+
+const ticks: number[] = [];
+for (let v = yMin; v <= yMax + 1e-9; v += step) ticks.push(v);
+
+// A handful of date labels, not one per session.
+const labelEvery = Math.max(1, Math.floor(rows.length / 6));
+const xLabels = rows
+  .map((d, i) => ({ i, date: d.date }))
+  .filter(({ i }) => i % labelEvery === 0);
+
+const payload = rows.map((d) => ({
+  d: d.date,
+  i: d.iv_30 as number,
+  r: d.rv_cc_21 as number,
+}));
+---
+
+{rows.length > 1 && (
+  <figure class="vh">
+    <figcaption class="vh-head">
+      <span class="vh-title">Implied against realized</span>
+      <span class="vh-legend">
+        <i class="sw sw-iv" aria-hidden="true"></i>30-day implied
+        <i class="sw sw-rv" aria-hidden="true"></i>21-day realized
+        <span class="vh-note">shaded: variance risk premium</span>
+      </span>
+    </figcaption>
+
+    <div class="vh-wrap">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Thirty-day implied volatility against twenty-one day realized volatility over ${rows.length} sessions.`}
+        data-series={JSON.stringify(payload)}
+        data-geom={JSON.stringify({ W, H, PAD, plotW, plotH, yMin, yMax })}
+      >
+        {ticks.map((v) => (
+          <g>
+            <line class="grid" x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)} />
+            <text class="tick" x={PAD.left - 8} y={y(v) + 3.5} text-anchor="end">
+              {(v * 100).toFixed(1)}
+            </text>
+          </g>
+        ))}
+
+        {xLabels.map(({ i, date }) => (
+          <text class="tick" x={x(i)} y={H - 8} text-anchor="middle">
+            {date.slice(2, 7)}
+          </text>
+        ))}
+
+        <path class="band" d={band} />
+        <path class="ln ln-rv" d={line('rv_cc_21')} />
+        <path class="ln ln-iv" d={line('iv_30')} />
+
+        <g class="cursor" hidden>
+          <line class="cx" y1={PAD.top} y2={PAD.top + plotH} />
+          <circle class="pt pt-iv" r="3.5" />
+          <circle class="pt pt-rv" r="3.5" />
+        </g>
+      </svg>
+
+      <div class="vh-read" hidden>
+        <span class="vh-date"></span>
+        <span class="vh-val vh-iv"></span>
+        <span class="vh-val vh-rv"></span>
+        <span class="vh-val vh-sp"></span>
+      </div>
+    </div>
+  </figure>
+)}
+
+<style>
+  .vh { margin: 0 0 2.4rem; }
+  .vh-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem 1.2rem;
+    margin-bottom: 0.7rem;
+  }
+  .vh-title {
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--type-muted);
+  }
+  .vh-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.76rem;
+    color: var(--type-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw { width: 14px; height: 2px; display: inline-block; margin-right: 0.15rem; }
+  .sw-iv { background: var(--amber); }
+  .sw-rv { background: var(--type-muted); }
+  .sw-rv { margin-left: 0.7rem; }
+  .vh-note { margin-left: 0.7rem; opacity: 0.7; }
+
+  .vh-wrap { position: relative; }
+  .vh svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+    touch-action: pan-y;
+  }
+
+  .grid { stroke: var(--rule); stroke-width: 1; opacity: 0.5; vector-effect: non-scaling-stroke; }
+  .tick {
+    fill: var(--type-muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .band { fill: var(--amber); opacity: 0.1; }
+  .ln { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+  .ln-iv { stroke: var(--amber); }
+  .ln-rv { stroke: var(--type-muted); opacity: 0.85; }
+
+  .cx { stroke: var(--type); stroke-width: 1; opacity: 0.35; vector-effect: non-scaling-stroke; }
+  .pt-iv { fill: var(--amber); }
+  .pt-rv { fill: var(--type-muted); }
+
+  .vh-read {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    gap: 0.9rem;
+    padding: 0.35rem 0.6rem;
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    border: 1px solid var(--rule);
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(-50%, -120%);
+  }
+  .vh-date { color: var(--type-muted); }
+  .vh-iv { color: var(--amber); }
+  .vh-rv { color: var(--type); }
+  .vh-sp { color: var(--type-muted); }
+
+  @media (max-width: 640px) {
+    .vh-note { display: none; }
+  }
+</style>
+
+<script>
+  // Hover readout. The chart is legible without it; this is for reading a
+  // specific session off the series rather than eyeballing the shape.
+  for (const fig of document.querySelectorAll<HTMLElement>('.vh')) {
+    const svg = fig.querySelector('svg');
+    const wrap = fig.querySelector<HTMLElement>('.vh-wrap');
+    const read = fig.querySelector<HTMLElement>('.vh-read');
+    const cursor = fig.querySelector<SVGGElement>('.cursor');
+    if (!svg || !wrap || !read || !cursor) continue;
+
+    const series = JSON.parse(svg.dataset.series || '[]') as
+      { d: string; i: number; r: number }[];
+    const g = JSON.parse(svg.dataset.geom || '{}');
+    if (!series.length) continue;
+
+    const px = (i: number) =>
+      g.PAD.left + (series.length < 2 ? g.plotW / 2 : (i / (series.length - 1)) * g.plotW);
+    const py = (v: number) =>
+      g.PAD.top + g.plotH - ((v - g.yMin) / (g.yMax - g.yMin || 1)) * g.plotH;
+
+    const cx = cursor.querySelector<SVGLineElement>('.cx')!;
+    const ptIv = cursor.querySelector<SVGCircleElement>('.pt-iv')!;
+    const ptRv = cursor.querySelector<SVGCircleElement>('.pt-rv')!;
+    const elDate = read.querySelector<HTMLElement>('.vh-date')!;
+    const elIv = read.querySelector<HTMLElement>('.vh-iv')!;
+    const elRv = read.querySelector<HTMLElement>('.vh-rv')!;
+    const elSp = read.querySelector<HTMLElement>('.vh-sp')!;
+
+    const pct = (v: number) => (v * 100).toFixed(2);
+
+    function show(clientX: number) {
+      const box = svg!.getBoundingClientRect();
+      const frac = (clientX - box.left) / box.width;
+      const vx = frac * g.W;
+      const t = (vx - g.PAD.left) / (g.plotW || 1);
+      const idx = Math.max(0, Math.min(series.length - 1, Math.round(t * (series.length - 1))));
+      const d = series[idx];
+
+      cx.setAttribute('x1', String(px(idx)));
+      cx.setAttribute('x2', String(px(idx)));
+      ptIv.setAttribute('cx', String(px(idx)));
+      ptIv.setAttribute('cy', String(py(d.i)));
+      ptRv.setAttribute('cx', String(px(idx)));
+      ptRv.setAttribute('cy', String(py(d.r)));
+      cursor!.removeAttribute('hidden');
+
+      elDate.textContent = d.d;
+      elIv.textContent = `IV ${pct(d.i)}`;
+      elRv.textContent = `RV ${pct(d.r)}`;
+      const spread = (d.i - d.r) * 100;
+      elSp.textContent = `${spread >= 0 ? '+' : '−'}${Math.abs(spread).toFixed(2)} vrp`;
+
+      read!.removeAttribute('hidden');
+      read!.style.left = `${(px(idx) / g.W) * 100}%`;
+      read!.style.top = `${(py(Math.max(d.i, d.r)) / g.H) * 100}%`;
+    }
+
+    function hide() {
+      cursor!.setAttribute('hidden', '');
+      read!.setAttribute('hidden', '');
+    }
+
+    svg.addEventListener('pointermove', (e) => show(e.clientX));
+    svg.addEventListener('pointerleave', hide);
+    svg.addEventListener('pointerdown', (e) => show(e.clientX));
+  }
+</script>
