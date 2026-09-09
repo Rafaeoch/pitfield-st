@@ -4,8 +4,47 @@ import VolSurface from '../components/VolSurface.astro';
 import { getIndex, getLatest, formatSnapshotET, int, pct } from '../lib/archive';
 import VolHistory from '../components/VolHistory.astro';
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 const index = getIndex();
 const latest = getLatest();
+
+function read(file: string) {
+  try {
+    return JSON.parse(fs.readFileSync(path.resolve('public/data', file), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+// The homepage summarises what the rest of the site holds, so it reads the
+// published artefacts directly rather than restating numbers by hand. Anything
+// missing degrades to a hidden section instead of a broken one.
+const study = read('study.json');
+const lit = read('literature.json');
+
+const results = study?.results ?? [];
+const sig = {
+  raw: results.filter((r: any) => r.p_value < 0.05).length,
+  bh: results.filter((r: any) => (r.p_bh ?? 1) < 0.05).length,
+  bonf: results.filter((r: any) => (r.p_bonferroni ?? 1) < 0.05).length,
+};
+const topFindings = [...results]
+  .sort((a: any, b: any) => a.p_value - b.p_value)
+  .slice(0, 4);
+
+const papers = (lit?.sections ?? [])
+  .flatMap((s: any) => s.papers ?? [])
+  .filter((p: any) => p.note)
+  .slice(0, 3);
+
+const m = latest?.metrics ?? {};
+const arb = latest?.arbitrage ?? {};
+const cov = latest?.coverage ?? {};
+
+const bp = (v: number | null | undefined) =>
+  v == null ? '—' : `${(v * 10000).toFixed(1)}bp`;
 
 const counters = [
   `Updated ${formatSnapshotET(latest?.snapshot_ts)}`,
@@ -116,9 +155,314 @@ const counters = [
       </dl>
     )}
   </div>
+
+  <div class="strata">
+
+    <section class="stratum">
+      <header class="stratum-head">
+        <span class="stratum-no">01</span>
+        <h2>The session</h2>
+        <p>
+          One snapshot a trading day, taken after the close. These are the
+          numbers behind the surface above.
+        </p>
+      </header>
+      <div class="grid-4">
+        <div class="cell">
+          <span class="cell-k">30-day implied</span>
+          <span class="cell-v">{pct(m.iv_30)}%</span>
+          <span class="cell-n">at the money, interpolated in total variance</span>
+        </div>
+        <div class="cell">
+          <span class="cell-k">21-day realized</span>
+          <span class="cell-v">{pct(m.rv_cc_21)}%</span>
+          <span class="cell-n">close to close, annualised on 252 days</span>
+        </div>
+        <div class="cell">
+          <span class="cell-k">Risk reversal, 25&Delta;</span>
+          <span class="cell-v">{pct(m.risk_reversal_25d)}%</span>
+          <span class="cell-n">put minus call: the cost of downside cover</span>
+        </div>
+        <div class="cell">
+          <span class="cell-k">Term slope, 90 &minus; 30</span>
+          <span class="cell-v">{pct(m.term_slope_90_30)}%</span>
+          <span class="cell-n">{m.term_shape ?? 'shape unavailable'}</span>
+        </div>
+      </div>
+      <p class="stratum-more"><a href="/vol/SPY/">The full surface and every metric &rarr;</a></p>
+    </section>
+
+    <section class="stratum">
+      <header class="stratum-head">
+        <span class="stratum-no">02</span>
+        <h2>What the pipeline does</h2>
+        <p>
+          Four steps, every one of them checkable. The code that performed them
+          is public, and so is the report of what it discarded.
+        </p>
+      </header>
+      <ol class="steps">
+        <li>
+          <h3>Extract the forward</h3>
+          <p>
+            Put and call parity gives the forward and the discount rate from the
+            chain itself, so nothing depends on an assumed dividend stream. Rate
+            error grows as 1/T, so short expiries borrow the rate and keep their
+            own forward.
+          </p>
+        </li>
+        <li>
+          <h3>Invert to implied volatility</h3>
+          <p>
+            Black-76 on the extracted forward, solved by Brent. Vega weighted,
+            because a fit that lets the illiquid wings dominate is a fit of the
+            wings.
+          </p>
+        </li>
+        <li>
+          <h3>Fit an arbitrage-free surface</h3>
+          <p>
+            Raw SVI per expiry under Durrleman's butterfly condition, each
+            maturity floored by the one before it so total variance cannot fall
+            with time. {arb.n_expiries_butterfly_ok ?? '—'} of {arb.n_expiries_fitted ?? '—'} expiries pass the butterfly
+            condition today; calendar violations stand at {arb.n_calendar_violations ?? '—'}.
+          </p>
+        </li>
+        <li>
+          <h3>Publish what was thrown away</h3>
+          <p>
+            Crossed markets, zero bids, stale quotes and fit failures are counted
+            and published beside the results. {pct(cov.excluded_share, 1)}% of today's chain
+            did not make it into a fit.
+          </p>
+        </li>
+      </ol>
+      <p class="stratum-more"><a href="/methodology/">The methodology in full &rarr;</a></p>
+    </section>
+
+    <section class="stratum">
+      <header class="stratum-head">
+        <span class="stratum-no">03</span>
+        <h2>A standing demonstration</h2>
+        <p>
+          Alongside the archive sits a pre-registered study of {study?.n_hypotheses_run ?? '—'} celestial
+          and calendar hypotheses, run against {study?.series?.n_sessions ? Number(study.series.n_sessions).toLocaleString('en-US') : '—'} sessions
+          of index returns through the same statistical harness. It exists to
+          show how readily data of this kind will fool you.
+        </p>
+      </header>
+      <div class="grid-3">
+        <div class="cell">
+          <span class="cell-k">Significant, uncorrected</span>
+          <span class="cell-v">{sig.raw}</span>
+          <span class="cell-n">of {study?.n_tests ?? '—'} tests at p &lt; 0.05</span>
+        </div>
+        <div class="cell">
+          <span class="cell-k">Survive Benjamini-Hochberg</span>
+          <span class="cell-v">{sig.bh}</span>
+          <span class="cell-n">false discovery rate across the family</span>
+        </div>
+        <div class="cell">
+          <span class="cell-k">Survive Bonferroni</span>
+          <span class="cell-v">{sig.bonf}</span>
+          <span class="cell-n">the strictest correction of the three</span>
+        </div>
+      </div>
+      {topFindings.length > 0 && (
+        <table class="findings">
+          <thead>
+            <tr><th>Hypothesis</th><th>Bucket</th><th class="n">Effect</th><th class="n">p</th></tr>
+          </thead>
+          <tbody>
+            {topFindings.map((r: any) => (
+              <tr>
+                <td>{r.hypothesis.replace(/_/g, ' ')}</td>
+                <td class="muted">{r.bucket.replace(/_/g, ' ')}</td>
+                <td class="n">{bp(r.effect)}</td>
+                <td class="n">{r.p_value < 0.00001 ? '<0.00001' : r.p_value.toFixed(5)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p class="stratum-more"><a href="/studies/">Every hypothesis, including the nulls &rarr;</a></p>
+    </section>
+
+    {papers.length > 0 && (
+      <section class="stratum">
+        <header class="stratum-head">
+          <span class="stratum-no">04</span>
+          <h2>The literature behind it</h2>
+          <p>
+            Every method here came from somewhere. The reading list is assembled
+            from OpenAlex and kept current, with a note on each paper saying what
+            it contributes to this archive.
+          </p>
+        </header>
+        <ul class="papers">
+          {papers.map((p: any) => (
+            <li>
+              <a href={p.url}>{p.title}</a>
+              <span class="paper-meta">{p.venue ?? 'preprint'}{p.year ? `, ${p.year}` : ''}</span>
+              <p>{p.note.slice(0, 190)}{p.note.length > 190 ? '…' : ''}</p>
+            </li>
+          ))}
+        </ul>
+        <p class="stratum-more"><a href="/reading/">The full reading list &rarr;</a></p>
+      </section>
+    )}
+
+  </div>
 </Base>
 
 <style>
+  /* ---- the strata ------------------------------------------------------
+     Numbered sections, each one a stratum of the archive. The rule above a
+     heading and the number in the margin are doing the work that a card grid
+     would otherwise do: they make the page feel surveyed rather than scrolled,
+     without wrapping everything in boxes. */
+  .strata {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 4vw, 3rem) 2rem;
+  }
+  .stratum {
+    padding: clamp(3rem, 7vw, 5.5rem) 0;
+    border-top: 1px solid var(--rule);
+  }
+  .stratum-head {
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    gap: 0 1.4rem;
+    margin-bottom: 2.4rem;
+  }
+  .stratum-no {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    padding-top: 0.55rem;
+  }
+  .stratum-head h2 {
+    margin: 0 0 0.6rem;
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+    letter-spacing: -0.015em;
+    line-height: 1.12;
+  }
+  .stratum-head p {
+    margin: 0;
+    max-width: 46rem;
+    color: var(--type-muted);
+    font-size: 0.95rem;
+    line-height: 1.62;
+  }
+  .stratum-more {
+    margin: 2.2rem 0 0;
+    padding-left: 5.4rem;
+    font-size: 0.86rem;
+  }
+  .stratum-more a { color: var(--accent); text-decoration: none; }
+  .stratum-more a:hover { color: var(--type); }
+
+  /* ---- measurement cells ---------------------------------------------- */
+  .grid-4, .grid-3 {
+    display: grid;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-left: 5.4rem;
+  }
+  .grid-4 { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .cell {
+    background: var(--void);
+    padding: 1.3rem 1.4rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .cell-k {
+    font-size: 0.66rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--type-muted);
+  }
+  .cell-v {
+    font-size: 1.9rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .cell-n {
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: var(--type-muted);
+  }
+
+  /* ---- the four steps -------------------------------------------------- */
+  .steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 0 0 0 5.4rem;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 2.2rem 2.8rem;
+  }
+  .steps li { counter-increment: step; position: relative; padding-top: 1.1rem; }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    opacity: 0.8;
+  }
+  .steps h3 { margin: 0.7rem 0 0.5rem; font-size: 1.02rem; }
+  .steps p { margin: 0; font-size: 0.87rem; line-height: 1.6; color: var(--type-muted); }
+
+  /* ---- findings table -------------------------------------------------- */
+  .findings { margin: 2rem 0 0 5.4rem; width: calc(100% - 5.4rem); }
+  .findings td.muted { color: var(--type-muted); }
+
+  /* ---- papers ---------------------------------------------------------- */
+  .papers {
+    list-style: none;
+    margin: 0 0 0 5.4rem;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 2rem 2.6rem;
+  }
+  .papers li { border-top: 1px solid var(--rule); padding-top: 1rem; }
+  .papers a {
+    color: var(--type);
+    text-decoration: none;
+    font-size: 0.98rem;
+    line-height: 1.35;
+    display: block;
+  }
+  .papers a:hover { color: var(--accent); }
+  .paper-meta {
+    display: block;
+    margin: 0.35rem 0 0.6rem;
+    font-size: 0.74rem;
+    letter-spacing: 0.05em;
+    color: var(--type-muted);
+  }
+  .papers p { margin: 0; font-size: 0.84rem; line-height: 1.58; color: var(--type-muted); }
+
+  @media (max-width: 680px) {
+    .stratum-head { grid-template-columns: 1fr; }
+    .stratum-no { padding-top: 0; margin-bottom: 0.4rem; }
+    .grid-4, .grid-3, .steps, .papers, .findings { margin-left: 0; }
+    .findings { width: 100%; }
+    .stratum-more { padding-left: 0; }
+  }
+
   .hero { margin: 0; position: relative; }
 
   /* The surface was the whole hero, which meant arriving on a rotating chart
