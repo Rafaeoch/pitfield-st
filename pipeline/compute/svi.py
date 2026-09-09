@@ -25,6 +25,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 
+from typing import NamedTuple
+
 import numpy as np
 from scipy.optimize import minimize
 
@@ -111,11 +113,25 @@ def check_butterfly(params: SVIParams, k=CHECK_GRID) -> tuple[bool, float]:
     return bool(min_g >= EPS_G), min_g
 
 
+class CalendarCheck(NamedTuple):
+    """Whether the surface crosses in maturity, and by how much.
+
+    Read the fields by name. This deliberately does not unpack as a pair: it
+    carries four values, and a caller writing ``ok, n = check_calendar(...)``
+    should fail loudly rather than silently bind the wrong things.
+    """
+
+    ok: bool
+    n_violations: int
+    worst_dw: float = 0.0
+    worst_vol_points: float = 0.0
+
+
 def check_calendar(
     fits: list[tuple[float, SVIParams]],
     k=CHECK_GRID,
     supports: list[tuple[float, float]] | None = None,
-) -> tuple[bool, int]:
+) -> CalendarCheck:
     """Total variance must be non-decreasing in T at fixed k.
 
     ``fits`` is a list of (T, params), any order. Returns
@@ -144,8 +160,10 @@ def check_calendar(
     )
 
     n_violations = 0
+    worst_dw = 0.0
+    worst_vol_points = 0.0
     for i in range(len(ordered) - 1):
-        (_, near), (_, far) = ordered[i], ordered[i + 1]
+        (T_near, near), (T_far, far) = ordered[i], ordered[i + 1]
         mask = np.ones_like(k, dtype=bool)
         if ordered_supports is not None:
             lo = max(ordered_supports[i][0], ordered_supports[i + 1][0])
@@ -154,9 +172,29 @@ def check_calendar(
         if not mask.any():
             continue
         diff = far.total_variance(k[mask]) - near.total_variance(k[mask])
-        n_violations += int(np.sum(diff < -1e-10))
+        bad = diff < -1e-10
+        n_violations += int(np.sum(bad))
+        if bad.any():
+            j = int(np.argmin(diff))
+            dw = float(diff[j])
+            worst_dw = min(worst_dw, dw)
+            # A count says a surface crosses. It cannot say whether the crossing
+            # is a tradeable inconsistency or a rounding artefact, and those
+            # want different responses. Restating the worst crossing as the
+            # implied-vol move that would repair it puts it in units a reader
+            # already has intuition for.
+            w_far = float(far.total_variance(k[mask][j]))
+            if T_far > 0:
+                v_now = np.sqrt(max(w_far, 1e-12) / T_far)
+                v_fix = np.sqrt(max(w_far - dw, 1e-12) / T_far)
+                worst_vol_points = max(worst_vol_points, abs(v_fix - v_now) * 100.0)
 
-    return n_violations == 0, n_violations
+    return CalendarCheck(
+        ok=n_violations == 0,
+        n_violations=n_violations,
+        worst_dw=worst_dw,
+        worst_vol_points=worst_vol_points,
+    )
 
 
 @dataclass(frozen=True)

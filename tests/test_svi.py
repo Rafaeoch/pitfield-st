@@ -77,7 +77,8 @@ def test_calendar_condition_accepts_increasing_total_variance():
         (0.25, SVIParams(a=0.0082, b=0.055, rho=-0.6, m=0.0, sigma=0.22)),
         (0.50, SVIParams(a=0.0165, b=0.080, rho=-0.6, m=0.0, sigma=0.25)),
     ]
-    ok, n_violations = check_calendar(fits)
+    result = check_calendar(fits)
+    ok, n_violations = result.ok, result.n_violations
     assert ok
     assert n_violations == 0
 
@@ -88,7 +89,8 @@ def test_calendar_condition_catches_decreasing_total_variance():
         (0.25, SVIParams(a=0.020, b=0.055, rho=-0.6, m=0.0, sigma=0.22)),
         (0.50, SVIParams(a=0.004, b=0.030, rho=-0.6, m=0.0, sigma=0.22)),
     ]
-    ok, n_violations = check_calendar(fits)
+    result = check_calendar(fits)
+    ok, n_violations = result.ok, result.n_violations
     assert not ok
     assert n_violations > 0
 
@@ -98,7 +100,7 @@ def test_calendar_check_is_order_independent():
         (0.50, SVIParams(a=0.0165, b=0.080, rho=-0.6, m=0.0, sigma=0.25)),
         (0.08, SVIParams(a=0.0026, b=0.030, rho=-0.6, m=0.0, sigma=0.20)),
     ]
-    assert check_calendar(fits)[0]
+    assert check_calendar(fits).ok
 
 
 def test_calibration_recovers_the_curve():

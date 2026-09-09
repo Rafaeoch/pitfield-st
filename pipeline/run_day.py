@@ -353,11 +353,13 @@ def compute_day(
     # reason the butterfly condition is: past the quoted strikes the surface is
     # extrapolating, and a crossing out there is an artefact of extrapolation
     # rather than an arbitrage in anything we publish.
-    calendar_ok, n_calendar_violations = check_calendar(
+    calendar = check_calendar(
         [(r.T, r.params) for r in fitted],
         SURFACE_K_GRID,
         supports=[(r.k_min, r.k_max) for r in fitted],
     )
+    calendar_ok = calendar.ok
+    n_calendar_violations = calendar.n_violations
 
     # --- greeks and aggregates over the whole chain ------------------------
     # Batched per expiry: one vectorised greeks call each, rather than one call
@@ -547,6 +549,12 @@ def compute_day(
         "arbitrage": {
             "calendar_ok": calendar_ok,
             "n_calendar_violations": n_calendar_violations,
+            # A count says the surface crosses somewhere. It cannot say whether
+            # that is a tradeable inconsistency or a rounding artefact, and the
+            # two want different responses. Published in implied-vol points:
+            # the move that would repair the worst crossing.
+            "worst_calendar_vol_points": _clean(calendar.worst_vol_points),
+            "worst_calendar_dw": _clean(calendar.worst_dw),
             "n_expiries_butterfly_ok": sum(1 for r in fitted if r.butterfly_ok),
             "n_expiries_fitted": len(fitted),
             "worst_min_g": _clean(min((r.min_g for r in fitted), default=float("nan"))),
