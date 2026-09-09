@@ -1,35 +1,139 @@
 ---
 /**
- * The house mark: Orion's Belt.
+ * The mark: a volatility surface seen edge-on, breathing.
  *
- * Mintaka, Alnilam and Alnitak, in their true relative positions and sized by
- * their real visual magnitudes — 2.23, 1.70 and 1.77, so Alnilam sits largest
- * and Mintaka smallest. The positions are a gnomonic projection of the
- * catalogue right ascensions and declinations, not three dots placed by eye.
- * That is the same discipline the rest of the archive runs on, applied to the
- * one piece of it a reader sees first.
+ * Six curves, each one maturity. Every curve is a smile — implied variance
+ * lowest at the money and rising into both wings — and the rear curves are
+ * shallower than the front ones, because the smile genuinely does flatten as
+ * maturity extends. So the shape is not decoration: it is the surface this
+ * archive publishes, drawn in section.
  *
- * Three stars on a slant is also the most robust shape tested: it is the only
- * candidate that stayed legible at 18px, because dots hold when strokes vanish.
+ * A travelling wave runs through the stack with a phase offset per curve, so
+ * the ripple passes back through the maturities rather than every line moving
+ * as one. That is what makes it read as water rather than as a wobble.
+ *
+ * Three things it does not do. It does not animate when the reader has asked
+ * for reduced motion. It does not animate while the tab is hidden or the mark
+ * is scrolled out of view, because a logo has no business burning a phone
+ * battery in a background tab. And it renders a correct static pose with no
+ * JavaScript at all, so the masthead is never empty.
  */
-interface Props { size?: number; class?: string }
-const { size = 30, class: className = '' } = Astro.props;
+interface Props { size?: number; class?: string; animate?: boolean }
+const { size = 30, class: className = '', animate = true } = Astro.props;
+
+const N = 6;
+const W = 110;
+const H = 40;
+const LIFT = 8.5;
+const SMILE = 0.52;
+
+// The static pose, rendered at build time. This is what a reader without
+// JavaScript sees, and what the animation starts from.
+function curve(depth: number, t = 0): string {
+  const sc = 1 - 0.3 * depth;
+  const phase = depth * 2.2;
+  const pts: string[] = [];
+  for (let j = 0; j <= 64; j++) {
+    const u = j / 64;
+    const k = (u - 0.5) * 2;
+    const smile = (0.12 + 0.88 * k * k) * H * sc * SMILE;
+    const wave = 6.0 * (1 - 0.28 * depth) * Math.sin(k * 2.2 - t + phase);
+    pts.push(`${(u * W).toFixed(2)},${(H - smile - depth * LIFT + wave).toFixed(2)}`);
+  }
+  return 'M' + pts.join('L');
+}
+
+const lines = Array.from({ length: N }, (_, i) => {
+  const depth = (N - 1 - i) / (N - 1);
+  return {
+    d: curve(depth),
+    width: (2.5 - depth * 1.15).toFixed(2),
+    opacity: (1 - depth * 0.62).toFixed(2),
+    depth,
+  };
+});
 ---
+
 <svg
   class={`mark ${className}`}
-  width={size}
+  width={size * 2.6}
   height={size}
-  viewBox="0 0 32 32"
-  aria-hidden="true"
-  focusable="false"
+  viewBox={`-4 -14 ${W + 8} ${H + 20}`}
+  role="img"
+  aria-label="Pitfield St: a volatility surface in section"
+  data-animate={animate ? 'true' : 'false'}
+  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE })}
 >
-  <circle cx="26.0" cy="8.49" r="1.95" class="mark-star" />
-  <circle cx="16.38" cy="16.74" r="2.27" class="mark-star" />
-  <circle cx="6.0" cy="23.51" r="2.22" class="mark-star" />
+  {lines.map((l) => (
+    <path
+      class="mark-line"
+      d={l.d}
+      data-depth={l.depth}
+      fill="none"
+      stroke-width={l.width}
+      opacity={l.opacity}
+      stroke-linecap="round"
+    />
+  ))}
 </svg>
 
 <style>
   .mark { display: block; overflow: visible; }
-  .mark-star { fill: var(--amber); }
-  a:hover .mark-star { fill: var(--type); }
+  .mark-line { stroke: var(--amber); }
+  a:hover .mark-line { stroke: var(--type); }
+  .mark-line { transition: stroke 200ms ease; }
 </style>
+
+<script>
+  for (const svg of document.querySelectorAll<SVGSVGElement>('.mark[data-animate="true"]')) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) continue;
+
+    const g = JSON.parse(svg.dataset.geom || '{}');
+    const paths = [...svg.querySelectorAll<SVGPathElement>('.mark-line')];
+    const depths = paths.map((p) => parseFloat(p.dataset.depth || '0'));
+
+    const build = (depth: number, t: number) => {
+      const sc = 1 - 0.3 * depth;
+      const phase = depth * 2.2;
+      let d = '';
+      for (let j = 0; j <= 64; j++) {
+        const u = j / 64;
+        const k = (u - 0.5) * 2;
+        const smile = (0.12 + 0.88 * k * k) * g.H * sc * g.SMILE;
+        const wave = 6.0 * (1 - 0.28 * depth) * Math.sin(k * 2.2 - t + phase);
+        d += (j ? 'L' : 'M') + (u * g.W).toFixed(2) + ',' +
+             (g.H - smile - depth * g.LIFT + wave).toFixed(2);
+      }
+      return d;
+    };
+
+    let raf = 0;
+    let visible = true;
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      // Slow. A logo that moves quickly is a distraction; this should read as
+      // a tide rather than an animation.
+      const t = ((now - start) / 1000) * 0.55;
+      for (let i = 0; i < paths.length; i++) paths[i].setAttribute('d', build(depths[i], t));
+      raf = requestAnimationFrame(tick);
+    };
+
+    const run = () => {
+      if (raf || !visible || document.hidden) return;
+      raf = requestAnimationFrame(tick);
+    };
+    const stop = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    };
+
+    document.addEventListener('visibilitychange', () => (document.hidden ? stop() : run()));
+    new IntersectionObserver((entries) => {
+      visible = entries[0].isIntersecting;
+      visible ? run() : stop();
+    }).observe(svg);
+
+    run();
+  }
+</script>

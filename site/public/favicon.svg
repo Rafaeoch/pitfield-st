@@ -1,7 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Orion's Belt: Mintaka, Alnilam, Alnitak. True positions, real magnitudes. -->
+  <!-- The mark at favicon scale: the same surface in section, reduced to three
+       maturities. Six curves become a smudge at 16px; three keep their gaps. -->
   <rect width="32" height="32" fill="#0b1017"/>
-  <circle cx="26.0" cy="8.49" r="1.95" fill="#f0a860"/>
-  <circle cx="16.38" cy="16.74" r="2.27" fill="#f0a860"/>
-  <circle cx="6.0" cy="23.51" r="2.22" fill="#f0a860"/>
+  <g fill="none" stroke="#f0a860" stroke-linecap="round">
+    <path d="M4,13.2 C9,18.4 23,18.4 28,13.2" stroke-width="2.4" opacity="1"/>
+    <path d="M4,9.6 C9,14.2 23,14.2 28,9.6" stroke-width="1.9" opacity="0.62"/>
+    <path d="M4,6.4 C9,10.4 23,10.4 28,6.4" stroke-width="1.5" opacity="0.34"/>
+  </g>
 </svg>
