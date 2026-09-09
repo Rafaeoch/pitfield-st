@@ -12,6 +12,18 @@
  * the ripple passes back through the maturities rather than every line moving
  * as one. That is what makes it read as water rather than as a wobble.
  *
+ * Colour travels with the wave. Each curve samples magma, the same
+ * perceptually uniform colormap the volatility surface is rendered with, and
+ * the sample point moves through the stack as the ripple does. So the mark
+ * runs through the ramp from back to front and back again, completing a full
+ * pass each cycle.
+ *
+ * Magma is not a brand palette. It was built for scientific visualisation so
+ * that equal steps in data are equal steps in perceived brightness, and so it
+ * survives colourblindness and greyscale printing. The site's amber accent is
+ * a sample from it at t = 0.88, which is why the mark and the surface belong
+ * to each other rather than merely matching.
+ *
  * Three things it does not do. It does not animate when the reader has asked
  * for reduced motion. It does not animate while the tab is hidden or the mark
  * is scrolled out of view, because a logo has no business burning a phone
@@ -20,6 +32,26 @@
  */
 interface Props { size?: number; class?: string; animate?: boolean }
 const { size = 30, class: className = '', animate = true } = Astro.props;
+
+// Magma, the ramp the surface uses. Kept in step with VolSurface.astro.
+const MAGMA: [number, number, number][] = [
+  [0.000, 0.001, 0.016], [0.051, 0.031, 0.161], [0.157, 0.043, 0.412],
+  [0.282, 0.043, 0.431], [0.416, 0.090, 0.433], [0.549, 0.161, 0.506],
+  [0.714, 0.212, 0.475], [0.871, 0.288, 0.408], [0.965, 0.435, 0.361],
+  [0.996, 0.624, 0.427], [0.988, 0.992, 0.749],
+];
+
+function magma(t: number): string {
+  // Remapped into the legible upper range: pure magma's black end disappears
+  // against this ground.
+  const u = Math.min(Math.max(0.30 + 0.66 * t, 0), 1) * (MAGMA.length - 1);
+  const i = Math.min(Math.floor(u), MAGMA.length - 2);
+  const f = u - i;
+  const a = MAGMA[i];
+  const b = MAGMA[i + 1];
+  const ch = (j: number) => Math.round((a[j] + (b[j] - a[j]) * f) * 255);
+  return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
+}
 
 const N = 6;
 const W = 110;
@@ -48,7 +80,8 @@ const lines = Array.from({ length: N }, (_, i) => {
   return {
     d: curve(depth),
     width: (2.5 - depth * 1.15).toFixed(2),
-    opacity: (1 - depth * 0.62).toFixed(2),
+    opacity: (1 - depth * 0.42).toFixed(2),
+    stroke: magma(1 - depth * 0.72),
     depth,
   };
 });
@@ -62,7 +95,7 @@ const lines = Array.from({ length: N }, (_, i) => {
   role="img"
   aria-label="Pitfield St: a volatility surface in section"
   data-animate={animate ? 'true' : 'false'}
-  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE })}
+  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE, MAGMA })}
 >
   {lines.map((l) => (
     <path
@@ -70,6 +103,7 @@ const lines = Array.from({ length: N }, (_, i) => {
       d={l.d}
       data-depth={l.depth}
       fill="none"
+      stroke={l.stroke}
       stroke-width={l.width}
       opacity={l.opacity}
       stroke-linecap="round"
@@ -79,9 +113,8 @@ const lines = Array.from({ length: N }, (_, i) => {
 
 <style>
   .mark { display: block; overflow: visible; }
-  .mark-line { stroke: var(--amber); }
-  a:hover .mark-line { stroke: var(--type); }
-  .mark-line { transition: stroke 200ms ease; }
+  /* Stroke is set per curve from the colormap, and updated per frame while
+     animating, so no CSS transition here: it would fight the rAF loop. */
 </style>
 
 <script>
@@ -91,6 +124,23 @@ const lines = Array.from({ length: N }, (_, i) => {
     const g = JSON.parse(svg.dataset.geom || '{}');
     const paths = [...svg.querySelectorAll<SVGPathElement>('.mark-line')];
     const depths = paths.map((p) => parseFloat(p.dataset.depth || '0'));
+
+    // Same ramp as the static pose and as the surface itself.
+    const M = g.MAGMA as [number, number, number][];
+    const magma = (v: number) => {
+      const u = Math.min(Math.max(0.30 + 0.66 * v, 0), 1) * (M.length - 1);
+      const i = Math.min(Math.floor(u), M.length - 2);
+      const f = u - i;
+      const a = M[i], b = M[i + 1];
+      const ch = (j: number) => Math.round((a[j] + (b[j] - a[j]) * f) * 255);
+      return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
+    };
+
+    // The colour front sweeps back to front and back again, a half-cycle
+    // behind the wave, so the ramp appears to travel through the stack rather
+    // than every curve changing hue at once.
+    const colourAt = (depth: number, t: number) =>
+      0.52 - depth * 0.30 + 0.46 * Math.sin(t * 0.42 - depth * 1.8);
 
     const build = (depth: number, t: number) => {
       const sc = 1 - 0.3 * depth;
@@ -115,12 +165,19 @@ const lines = Array.from({ length: N }, (_, i) => {
       // Slow. A logo that moves quickly is a distraction; this should read as
       // a tide rather than an animation.
       const t = ((now - start) / 1000) * 0.55;
-      for (let i = 0; i < paths.length; i++) paths[i].setAttribute('d', build(depths[i], t));
+      for (let i = 0; i < paths.length; i++) {
+        paths[i].setAttribute('d', build(depths[i], t));
+        paths[i].setAttribute('stroke', magma(colourAt(depths[i], t)));
+      }
       raf = requestAnimationFrame(tick);
     };
 
+    // Deliberately not gated on document.hidden. Browsers already withhold
+    // requestAnimationFrame from hidden documents, so the guard bought nothing
+    // and could deadlock: a page that loaded while hidden and never afterwards
+    // fired visibilitychange would leave the mark frozen for the whole visit.
     const run = () => {
-      if (raf || !visible || document.hidden) return;
+      if (raf || !visible) return;
       raf = requestAnimationFrame(tick);
     };
     const stop = () => {
@@ -128,7 +185,7 @@ const lines = Array.from({ length: N }, (_, i) => {
       raf = 0;
     };
 
-    document.addEventListener('visibilitychange', () => (document.hidden ? stop() : run()));
+    document.addEventListener('visibilitychange', run);
     new IntersectionObserver((entries) => {
       visible = entries[0].isIntersecting;
       visible ? run() : stop();
