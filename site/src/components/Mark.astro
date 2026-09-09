@@ -67,21 +67,38 @@ function mix(i: number, j: number, f: number): string {
 const N = 6;
 const W = 110;
 const H = 40;
-const LIFT = 8.5;
-const SMILE = 0.52;
+// Deeper stacking, so the ribs read as separate curves rather than a band.
+const LIFT = 15.5;
+const SMILE = 0.44;
+// Each maturity steps sideways as it recedes, turning a flat stack into a
+// plane running away from the viewer. This is what makes it read as a surface
+// on an incline rather than lines on paper.
+const SKEW = 10;
+// More travel in the wave, now that the curves have room between them.
+const AMP = 7.8;
+// The whole mark sits on a slope. Negative lifts the far end.
+const TILT = -11;
+// How much shallower each receding curve is drawn. This was 0.30, which is
+// closer to the truth -- the smile really does flatten with maturity -- but it
+// collapsed the rear wings onto the front ones and the ribs disappeared into a
+// single band at the right-hand end. Kept small so the curves stay parallel
+// and the ripple stays legible: at this size the mark has to read first.
+const FLAT = 0.08;
 
 // The static pose, rendered at build time. This is what a reader without
 // JavaScript sees, and what the animation starts from.
 function curve(depth: number, t = 0): string {
-  const sc = 1 - 0.3 * depth;
+  const sc = 1 - FLAT * depth;
   const phase = depth * 2.2;
   const pts: string[] = [];
   for (let j = 0; j <= 64; j++) {
     const u = j / 64;
     const k = (u - 0.5) * 2;
     const smile = (0.12 + 0.88 * k * k) * H * sc * SMILE;
-    const wave = 6.0 * (1 - 0.28 * depth) * Math.sin(k * 2.2 - t + phase);
-    pts.push(`${(u * W).toFixed(2)},${(H - smile - depth * LIFT + wave).toFixed(2)}`);
+    const wave = AMP * (1 - 0.28 * depth) * Math.sin(k * 2.2 - t + phase);
+    pts.push(
+      `${(u * W + depth * SKEW).toFixed(2)},${(H - smile - depth * LIFT + wave).toFixed(2)}`
+    );
   }
   return 'M' + pts.join('L');
 }
@@ -102,12 +119,13 @@ const lines = Array.from({ length: N }, (_, i) => {
   class={`mark ${className}`}
   width={size * 2.6}
   height={size}
-  viewBox={`-4 -14 ${W + 8} ${H + 20}`}
+  viewBox={`-10 -34 ${W + SKEW + 24} ${H + LIFT + 30}`}
   role="img"
   aria-label="Pitfield St: a volatility surface in section"
   data-animate={animate ? 'true' : 'false'}
-  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE, RAMP })}
+  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE, RAMP, SKEW, AMP, FLAT })}
 >
+  <g transform={`rotate(${TILT} ${(W + SKEW) / 2} ${H / 2})`}>
   {lines.map((l) => (
     <path
       class="mark-line"
@@ -120,6 +138,7 @@ const lines = Array.from({ length: N }, (_, i) => {
       stroke-linecap="round"
     />
   ))}
+  </g>
 </svg>
 
 <style>
@@ -167,15 +186,15 @@ const lines = Array.from({ length: N }, (_, i) => {
     };
 
     const build = (depth: number, t: number) => {
-      const sc = 1 - 0.3 * depth;
+      const sc = 1 - g.FLAT * depth;
       const phase = depth * 2.2;
       let d = '';
       for (let j = 0; j <= 64; j++) {
         const u = j / 64;
         const k = (u - 0.5) * 2;
         const smile = (0.12 + 0.88 * k * k) * g.H * sc * g.SMILE;
-        const wave = 6.0 * (1 - 0.28 * depth) * Math.sin(k * 2.2 - t + phase);
-        d += (j ? 'L' : 'M') + (u * g.W).toFixed(2) + ',' +
+        const wave = g.AMP * (1 - 0.28 * depth) * Math.sin(k * 2.2 - t + phase);
+        d += (j ? 'L' : 'M') + (u * g.W + depth * g.SKEW).toFixed(2) + ',' +
              (g.H - smile - depth * g.LIFT + wave).toFixed(2);
       }
       return d;
