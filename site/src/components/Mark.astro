@@ -73,11 +73,13 @@ const SMILE = 0.44;
 // Each maturity steps sideways as it recedes, turning a flat stack into a
 // plane running away from the viewer. This is what makes it read as a surface
 // on an incline rather than lines on paper.
-const SKEW = 10;
+// Kept small. This is depth, not tilt: enough that the stack reads as a plane
+// receding rather than lines drawn flat, without the whole figure leaning.
+const SKEW = 6;
 // More travel in the wave, now that the curves have room between them.
 const AMP = 7.8;
-// The whole mark sits on a slope. Negative lifts the far end.
-const TILT = -11;
+// Level. A rotated version read as leaning rather than as a surface.
+const TILT = 0;
 // How much shallower each receding curve is drawn. This was 0.30, which is
 // closer to the truth -- the smile really does flatten with maturity -- but it
 // collapsed the rear wings onto the front ones and the ribs disappeared into a
