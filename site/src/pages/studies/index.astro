@@ -100,6 +100,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     <a href="/studies/moon/">The moon, rendered from real ephemeris &rarr;</a>
   </nav>
 
+  <section class="band">
   <h2>Where everything is, right now</h2>
   <p>
     Apparent geocentric positions from JPL DE440s, the same ephemeris the study
@@ -236,6 +237,8 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     </div>
   )}
 
+  </section>
+  <section class="band band--2">
   <h2>The hypothesis list</h2>
   <p>
     Ordered by prior plausibility, not by p-value. That ordering is the
@@ -259,6 +262,8 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     </section>
   ))}
 
+  </section>
+  <section class="band">
   <h2>How every hypothesis will be treated</h2>
   <p>
     Identically. No per-hypothesis tuning, which is the whole design. Daily
@@ -276,6 +281,8 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     market has produced, and that is the result worth publishing.
   </p>
 
+  </section>
+  <section class="band band--2">
   <h2 id="bangladesh">The Bangladesh line</h2>
   <p>
     When the leaderboard exists it will carry a horizontal rule at the corrected
@@ -290,7 +297,8 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     and the US took it to 99%. It was published as <em>Stupid Data Miner
     Tricks</em>. Everything above this line is butter.
   </blockquote>
-</Base>
+
+  </section></Base>
 
 <style>
   .jump {

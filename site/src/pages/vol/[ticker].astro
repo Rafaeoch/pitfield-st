@@ -51,6 +51,7 @@ const chartData = {
     <VolSurface height="52vh" id="ticker-surface" />
   </div>
 
+  <section class="band">
   <h2>Implied volatility</h2>
   <div class="grid-2">
     <table>
@@ -78,6 +79,8 @@ const chartData = {
     provisional until the window fills.
   </p>
 
+  </section>
+  <section class="band band--2">
   <h2>The smile, expiry by expiry</h2>
   <p class="small muted">
     Points are market implied volatilities inverted from mid quotes; the line is
@@ -86,9 +89,13 @@ const chartData = {
   </p>
   <div class="chart" id="chart-smile"></div>
 
+  </section>
+  <section class="band">
   <h2>Term structure</h2>
   <div class="chart" id="chart-term"></div>
 
+  </section>
+  <section class="band band--2">
   <h2>Momentum and trend</h2>
   <p class="small muted">
     Computed from the underlying's own price history, not from the option
@@ -133,6 +140,8 @@ const chartData = {
     </tbody>
   </table>
 
+  </section>
+  <section class="band">
   <h2>Realized volatility</h2>
   <p class="small muted">
     Five estimators, annualised on 252 trading days. They disagree by
@@ -162,6 +171,8 @@ const chartData = {
     </table>
   </div>
 
+  </section>
+  <section class="band band--2">
   <h2>Gamma exposure</h2>
   <div class="banner" role="note">
     <strong>Sign convention is an assumption.</strong>
@@ -192,6 +203,8 @@ const chartData = {
   </div>
   <div class="chart" id="chart-gex"></div>
 
+  </section>
+  <section class="band">
   <h2>Fit quality, by expiry</h2>
   <div class="table-scroll">
     <table>
@@ -234,7 +247,8 @@ const chartData = {
   </p>
 
   <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
-</Base>
+
+  </section></Base>
 
 <style>
   /* Two readouts side by side, stacking on narrow screens. The metrics divide

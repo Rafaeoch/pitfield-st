@@ -55,6 +55,7 @@ const eq = {
     </ol>
   </nav>
 
+  <section class="band">
   <h2 id="forward">1. Forward and rate extraction</h2>
   <p>
     We do not plug in a Treasury yield and a dividend estimate. Both are backed
@@ -95,6 +96,8 @@ const eq = {
     </p>
   </div>
 
+  </section>
+  <section class="band band--2">
   <h2 id="surface">2. Surface calibration</h2>
   <p>
     We work in total implied variance <span class="num">w = σ²T</span> against
@@ -126,6 +129,8 @@ const eq = {
     and the mid of a wide market is systematically off.
   </p>
 
+  </section>
+  <section class="band">
   <h2 id="arbitrage">3. Arbitrage conditions</h2>
   <p>
     Both conditions are checked on every surface, every day, and the results,
@@ -159,6 +164,8 @@ const eq = {
     </p>
   </div>
 
+  </section>
+  <section class="band band--2">
   <h2 id="greeks">4. Greeks and units</h2>
   <p>
     Everything is priced on the extracted forward with Black-76, which removes
@@ -190,6 +197,8 @@ const eq = {
     </tbody>
   </table>
 
+  </section>
+  <section class="band">
   <h2 id="metrics">5. Derived metrics</h2>
   <h3>Constant-maturity implied volatility</h3>
   <p>
@@ -219,6 +228,8 @@ const eq = {
     a lookahead bug wearing a metric's clothes.
   </p>
 
+  </section>
+  <section class="band band--2">
   <h2 id="realized">6. Realized volatility</h2>
   <p>
     Five estimators at 5, 10, 21, 63 and 252 trading days, annualised on 252
@@ -239,6 +250,8 @@ const eq = {
     intraday-range indicator and essentially nobody publishes it.
   </p>
 
+  </section>
+  <section class="band">
   <h2 id="aggregates">7. Chain aggregates</h2>
   <Fragment set:html={tex(eq.gex)} />
   <p>Dollar gamma per 1% move in spot.</p>
@@ -261,6 +274,8 @@ const eq = {
     </p>
   </div>
 
+  </section>
+  <section class="band band--2">
   <h2 id="filters">8. Filtering and exclusions</h2>
   <p>Before calibration a contract is dropped if it is:</p>
   <ul>
@@ -278,6 +293,8 @@ const eq = {
     of a chain is a different object from one fitted to all of it.
   </p>
 
+  </section>
+  <section class="band">
   <h2 id="limitations">9. Known limitations</h2>
   <ul>
     {latest?.synthetic && (
@@ -320,7 +337,8 @@ const eq = {
       transactable price, and in wide markets it is a poor estimate of one.
     </li>
   </ul>
-</Base>
+
+  </section></Base>
 
 <style>
   .toc {

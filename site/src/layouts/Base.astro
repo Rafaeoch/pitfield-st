@@ -185,15 +185,16 @@ const isActive = (href: string) =>
            accent is the same hue at 259 degrees lightened until it clears
            4.5:1, and Ultra Violet is kept for the mark and for fills where
            nothing has to be read off it. */
-        /* Three grounds, so a long page reads as blocks rather than one
-           unbroken scroll. Steps of 1.18 and 1.13 in relative luminance: far
-           enough apart to see, close enough that body text stays above 12:1 on
-           every one of them. The third is violet-tinted rather than another
-           grey, so the palette shows up in the structure and not only in the
-           accents. */
+        /* Two grounds, so a long page reads as blocks rather than one unbroken
+           scroll: near-black, and a neutral dark grey. A step of 1.24 in
+           relative luminance -- clearly visible as a change of block, with body
+           text still above 12:1 on both.
+
+           Not lighter than this. #252A32 separates more but drags the accent to
+           3.9:1, under the 4.5 needed for body-sized text, and links sit on
+           these grounds. */
         --ground-1: #0b1017;
-        --ground-2: #18212E;
-        --ground-3: #1F1540;
+        --ground-2: #1E2228;
 
         --violet: #5F4B8B;          /* Ultra Violet 18-3838, the anchor */
         --accent: #8E7AB8;          /* same hue, legible: 5.11:1 */
@@ -385,7 +386,14 @@ const isActive = (href: string) =>
         padding-right: calc(50vw - 39rem);
       }
       .band--2 { background: var(--ground-2); }
-      .band--3 { background: var(--ground-3); }
+      /* A band carries a ground, so it needs air inside it or the colour
+         change lands hard against the text. Applied to banded interior pages;
+         the homepage strata set their own larger rhythm. */
+      main:not(.wide) .band {
+        padding-top: clamp(2.4rem, 5vw, 4rem);
+        padding-bottom: clamp(2.4rem, 5vw, 4rem);
+      }
+      main:not(.wide) .band > h2:first-child { margin-top: 0; }
       @media (max-width: 82rem) {
         .band { padding-left: clamp(1rem, 4vw, 3rem); padding-right: clamp(1rem, 4vw, 3rem); }
       }

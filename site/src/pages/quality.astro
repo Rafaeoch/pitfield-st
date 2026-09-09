@@ -23,6 +23,7 @@ const history = index?.history ?? [];
     make it into a fit is part of the result, not an implementation detail.
   </p>
 
+  <section class="band">
   <h2>Today, {latest?.date}</h2>
   <div class="grid-2">
     <table>
@@ -115,6 +116,8 @@ const history = index?.history ?? [];
     </>
   )}
 
+  </section>
+  <section class="band band--2">
   <h2>History</h2>
   <p class="small muted">
     {int(history.length)} days archived. A sudden drop in row count means a
@@ -125,7 +128,8 @@ const history = index?.history ?? [];
   <div class="chart" id="chart-exclusion"></div>
 
   <script type="application/json" id="quality-data" set:html={JSON.stringify({ history })} />
-</Base>
+
+  </section></Base>
 
 <style>
   .grid-2 {
