@@ -176,7 +176,29 @@ const isActive = (href: string) =>
         --rule: #26313d;
         --type: #e6e3db;
         --type-muted: #8a96a3;
-        --amber: #f0a860;
+        /* Ultra Violet and its family. Pantone spot colours have no exact
+           sRGB equivalent, so these are the standard approximations.
+
+           Ultra Violet itself is 18-3838 #5F4B8B. It carries the identity but
+           cannot carry text: against this ground it measures 2.60:1, which
+           fails even the relaxed 3:1 threshold for large text and UI. So the
+           accent is the same hue at 259 degrees lightened until it clears
+           4.5:1, and Ultra Violet is kept for the mark and for fills where
+           nothing has to be read off it. */
+        --violet: #5F4B8B;          /* Ultra Violet 18-3838, the anchor */
+        --accent: #8E7AB8;          /* same hue, legible: 5.11:1 */
+        --accent-bright: #B8ACD2;   /* 8.97:1, for emphasis on dark panels */
+        --grape: #8B4A8B;           /* Sparkling Grape 19-3336 */
+        --mulberry: #A96FA5;        /* Mulberry 17-3014 */
+        --jacaranda: #7D8BC7;       /* Jacaranda 17-3930 */
+        --rhapsody: #A093C0;        /* Rhapsody 16-3817 */
+        --red-violet: #A85C82;      /* Red Violet 17-1818 */
+        --chateau: #D9738F;         /* Chateau Rose 17-2120 */
+        --prism: #F0A6CE;           /* Prism Pink 14-2311 */
+
+        /* Kept so nothing that still asks for the old token breaks; it now
+           resolves to the accent rather than to amber. */
+        --amber: var(--accent);
         --fault: #c4553d;
 
         --measure: 66ch;

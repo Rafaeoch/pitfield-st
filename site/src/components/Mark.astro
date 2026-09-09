@@ -12,17 +12,13 @@
  * the ripple passes back through the maturities rather than every line moving
  * as one. That is what makes it read as water rather than as a wobble.
  *
- * Colour travels with the wave. Each curve samples magma, the same
- * perceptually uniform colormap the volatility surface is rendered with, and
- * the sample point moves through the stack as the ripple does. So the mark
- * runs through the ramp from back to front and back again, completing a full
- * pass each cycle.
+ * Colour travels with the wave. Each curve samples the Ultra Violet family,
+ * and the sample point moves through the stack as the ripple does, so the mark
+ * runs the ramp back to front and front to back, a full pass every cycle.
  *
- * Magma is not a brand palette. It was built for scientific visualisation so
- * that equal steps in data are equal steps in perceived brightness, and so it
- * survives colourblindness and greyscale printing. The site's amber accent is
- * a sample from it at t = 0.88, which is why the mark and the surface belong
- * to each other rather than merely matching.
+ * Ultra Violet anchors it. It is also the darkest of the eight and measures
+ * 2.6:1 against this ground, so the cycle passes through it rather than
+ * resting on it, and text elsewhere uses a lightened tint of the same hue.
  *
  * Three things it does not do. It does not animate when the reader has asked
  * for reduced motion. It does not animate while the tab is hidden or the mark
@@ -33,23 +29,35 @@
 interface Props { size?: number; class?: string; animate?: boolean }
 const { size = 30, class: className = '', animate = true } = Astro.props;
 
-// Magma, the ramp the surface uses. Kept in step with VolSurface.astro.
-const MAGMA: [number, number, number][] = [
-  [0.000, 0.001, 0.016], [0.051, 0.031, 0.161], [0.157, 0.043, 0.412],
-  [0.282, 0.043, 0.431], [0.416, 0.090, 0.433], [0.549, 0.161, 0.506],
-  [0.714, 0.212, 0.475], [0.871, 0.288, 0.408], [0.965, 0.435, 0.361],
-  [0.996, 0.624, 0.427], [0.988, 0.992, 0.749],
+// The Ultra Violet family, ordered dark to light so it reads as one ramp
+// rather than eight unrelated swatches. Pantone spot colours have no exact
+// sRGB equivalent; these are the standard approximations.
+//
+//   18-3838 Ultra Violet    19-3336 Sparkling Grape   17-3014 Mulberry
+//   17-3930 Jacaranda       16-3817 Rhapsody          17-1818 Red Violet
+//   17-2120 Chateau Rose    14-2311 Prism Pink
+//
+// Ultra Violet anchors it and is where the resting pose sits. It is the
+// darkest of the eight, so the cycle deliberately spends most of its time
+// above it: a mark that rested at 2.6:1 against this ground would be dim.
+const RAMP: [number, number, number][] = [
+  [0x5F, 0x4B, 0x8B],  // Ultra Violet
+  [0x8B, 0x4A, 0x8B],  // Sparkling Grape
+  [0xA8, 0x5C, 0x82],  // Red Violet
+  [0xA9, 0x6F, 0xA5],  // Mulberry
+  [0x7D, 0x8B, 0xC7],  // Jacaranda
+  [0xA0, 0x93, 0xC0],  // Rhapsody
+  [0xD9, 0x73, 0x8F],  // Chateau Rose
+  [0xF0, 0xA6, 0xCE],  // Prism Pink
 ];
 
-function magma(t: number): string {
-  // Remapped into the legible upper range: pure magma's black end disappears
-  // against this ground.
-  const u = Math.min(Math.max(0.30 + 0.66 * t, 0), 1) * (MAGMA.length - 1);
-  const i = Math.min(Math.floor(u), MAGMA.length - 2);
+function ramp(t: number): string {
+  const u = Math.min(Math.max(t, 0), 1) * (RAMP.length - 1);
+  const i = Math.min(Math.floor(u), RAMP.length - 2);
   const f = u - i;
-  const a = MAGMA[i];
-  const b = MAGMA[i + 1];
-  const ch = (j: number) => Math.round((a[j] + (b[j] - a[j]) * f) * 255);
+  const a = RAMP[i];
+  const b = RAMP[i + 1];
+  const ch = (j: number) => Math.round(a[j] + (b[j] - a[j]) * f);
   return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
 }
 
@@ -81,7 +89,7 @@ const lines = Array.from({ length: N }, (_, i) => {
     d: curve(depth),
     width: (2.5 - depth * 1.15).toFixed(2),
     opacity: (1 - depth * 0.42).toFixed(2),
-    stroke: magma(1 - depth * 0.72),
+    stroke: ramp(0.18 + (1 - depth) * 0.62),
     depth,
   };
 });
@@ -95,7 +103,7 @@ const lines = Array.from({ length: N }, (_, i) => {
   role="img"
   aria-label="Pitfield St: a volatility surface in section"
   data-animate={animate ? 'true' : 'false'}
-  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE, MAGMA })}
+  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE, RAMP })}
 >
   {lines.map((l) => (
     <path
@@ -125,22 +133,24 @@ const lines = Array.from({ length: N }, (_, i) => {
     const paths = [...svg.querySelectorAll<SVGPathElement>('.mark-line')];
     const depths = paths.map((p) => parseFloat(p.dataset.depth || '0'));
 
-    // Same ramp as the static pose and as the surface itself.
-    const M = g.MAGMA as [number, number, number][];
-    const magma = (v: number) => {
-      const u = Math.min(Math.max(0.30 + 0.66 * v, 0), 1) * (M.length - 1);
-      const i = Math.min(Math.floor(u), M.length - 2);
+    // Same eight-colour family as the static pose.
+    const R = g.RAMP as [number, number, number][];
+    const ramp = (v: number) => {
+      const u = Math.min(Math.max(v, 0), 1) * (R.length - 1);
+      const i = Math.min(Math.floor(u), R.length - 2);
       const f = u - i;
-      const a = M[i], b = M[i + 1];
-      const ch = (j: number) => Math.round((a[j] + (b[j] - a[j]) * f) * 255);
+      const a = R[i], b = R[i + 1];
+      const ch = (j: number) => Math.round(a[j] + (b[j] - a[j]) * f);
       return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
     };
 
     // The colour front sweeps back to front and back again, a half-cycle
-    // behind the wave, so the ramp appears to travel through the stack rather
-    // than every curve changing hue at once.
+    // behind the wave, so the ramp travels through the stack instead of every
+    // curve changing together. Centred at 0.55 rather than 0.5: the low end of
+    // this family is Ultra Violet, which is dark against this ground, so the
+    // cycle passes through it rather than dwelling there.
     const colourAt = (depth: number, t: number) =>
-      0.52 - depth * 0.30 + 0.46 * Math.sin(t * 0.42 - depth * 1.8);
+      0.55 - depth * 0.16 + 0.42 * Math.sin(t * 0.42 - depth * 1.8);
 
     const build = (depth: number, t: number) => {
       const sc = 1 - 0.3 * depth;
@@ -167,7 +177,7 @@ const lines = Array.from({ length: N }, (_, i) => {
       const t = ((now - start) / 1000) * 0.55;
       for (let i = 0; i < paths.length; i++) {
         paths[i].setAttribute('d', build(depths[i], t));
-        paths[i].setAttribute('stroke', magma(colourAt(depths[i], t)));
+        paths[i].setAttribute('stroke', ramp(colourAt(depths[i], t)));
       }
       raf = requestAnimationFrame(tick);
     };

@@ -152,7 +152,10 @@ const history = index?.history ?? [];
   const el = document.getElementById('quality-data');
   if (el) {
     const { history } = JSON.parse(el.textContent!);
-    const AMBER = '#f0a860';
+    // Read from the palette so the charts follow the accent rather than
+    // pinning a colour that the theme has moved on from.
+    const AMBER = getComputedStyle(document.documentElement)
+      .getPropertyValue('--accent').trim() || '#8E7AB8';
     const FAULT = '#c4553d';
     const MUTED = '#8a96a3';
     const RULE = '#26313d';
