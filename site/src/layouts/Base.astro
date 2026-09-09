@@ -185,6 +185,16 @@ const isActive = (href: string) =>
            accent is the same hue at 259 degrees lightened until it clears
            4.5:1, and Ultra Violet is kept for the mark and for fills where
            nothing has to be read off it. */
+        /* Three grounds, so a long page reads as blocks rather than one
+           unbroken scroll. Steps of 1.18 and 1.13 in relative luminance: far
+           enough apart to see, close enough that body text stays above 12:1 on
+           every one of them. The third is violet-tinted rather than another
+           grey, so the palette shows up in the structure and not only in the
+           accents. */
+        --ground-1: #0b1017;
+        --ground-2: #18212E;
+        --ground-3: #1F1540;
+
         --violet: #5F4B8B;          /* Ultra Violet 18-3838, the anchor */
         --accent: #8E7AB8;          /* same hue, legible: 5.11:1 */
         --accent-bright: #B8ACD2;   /* 8.97:1, for emphasis on dark panels */
@@ -340,12 +350,45 @@ const isActive = (href: string) =>
       }
       .nav-secondary { font-style: italic; }
 
+      /* The measure the page is set on, drawn faintly behind every page. An
+         engineering-led site shows its grid; a marketing site hides it. */
       main {
+        position: relative;
         max-width: 78rem;
         margin: 0 auto;
         padding: clamp(2.4rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem) 7rem;
       }
       main.wide { max-width: none; padding-left: 0; padding-right: 0; }
+      main::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image: repeating-linear-gradient(
+          to right,
+          var(--rule) 0 1px,
+          transparent 1px calc(100% / 12)
+        );
+        opacity: 0.30;
+      }
+      main.wide::before { display: none; }
+      main > * { position: relative; z-index: 1; }
+
+      /* Full-bleed section grounds. The band spans the viewport while its
+         contents stay on the measure. */
+      .band {
+        position: relative;
+        width: 100vw;
+        margin-left: calc(50% - 50vw);
+        padding-left: calc(50vw - 39rem);
+        padding-right: calc(50vw - 39rem);
+      }
+      .band--2 { background: var(--ground-2); }
+      .band--3 { background: var(--ground-3); }
+      @media (max-width: 82rem) {
+        .band { padding-left: clamp(1rem, 4vw, 3rem); padding-right: clamp(1rem, 4vw, 3rem); }
+      }
 
       h1, h2, h3 {
         line-height: 1.18;

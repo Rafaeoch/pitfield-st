@@ -158,7 +158,7 @@ const counters = [
 
   <div class="strata">
 
-    <section class="stratum">
+    <section class="stratum band">
       <header class="stratum-head">
         <span class="stratum-no">01</span>
         <h2>The session</h2>
@@ -192,7 +192,7 @@ const counters = [
       <p class="stratum-more"><a href="/vol/SPY/">The full surface and every metric &rarr;</a></p>
     </section>
 
-    <section class="stratum">
+    <section class="stratum band band--2">
       <header class="stratum-head">
         <span class="stratum-no">02</span>
         <h2>What the pipeline does</h2>
@@ -240,7 +240,7 @@ const counters = [
       <p class="stratum-more"><a href="/methodology/">The methodology in full &rarr;</a></p>
     </section>
 
-    <section class="stratum">
+    <section class="stratum band band--3">
       <header class="stratum-head">
         <span class="stratum-no">03</span>
         <h2>A standing demonstration</h2>
@@ -289,7 +289,7 @@ const counters = [
     </section>
 
     {papers.length > 0 && (
-      <section class="stratum">
+      <section class="stratum band band--2">
         <header class="stratum-head">
           <span class="stratum-no">04</span>
           <h2>The literature behind it</h2>
@@ -321,16 +321,11 @@ const counters = [
      heading and the number in the margin are doing the work that a card grid
      would otherwise do: they make the page feel surveyed rather than scrolled,
      without wrapping everything in boxes. */
-  .strata {
-    position: relative;
-    max-width: 78rem;
-    margin: 0 auto;
-    padding: 0 clamp(1rem, 4vw, 3rem) 2rem;
-  }
+  /* No measure here: each band spans the viewport and sets its own. */
+  .strata { position: relative; padding-bottom: 2rem; }
   .stratum {
     position: relative;
-    padding: clamp(4rem, 9vw, 7.5rem) 0;
-    border-top: 1px solid var(--rule);
+    padding: clamp(4.5rem, 10vw, 8rem) 0;
   }
   /* A faint twelve-column rule behind each section. Structural rather than
      decorative: it shows the measure the page is set on, which is a thing
@@ -338,14 +333,14 @@ const counters = [
   .stratum::before {
     content: '';
     position: absolute;
-    inset: 0 0 0 5.4rem;
+    inset: 0;
     pointer-events: none;
     background-image: repeating-linear-gradient(
       to right,
-      color-mix(in srgb, var(--rule) 55%, transparent) 0 1px,
+      var(--rule) 0 1px,
       transparent 1px calc(100% / 12)
     );
-    opacity: 0.5;
+    opacity: 0.55;
     z-index: 0;
   }
   .stratum > * { position: relative; z-index: 1; }
