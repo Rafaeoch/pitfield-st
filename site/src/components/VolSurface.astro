@@ -82,13 +82,25 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
 <script>
   import * as THREE from 'three';
 
-  // Magma, sampled. The UI accent (#F0A860) sits near t = 0.88 on this ramp,
-  // which is what makes the accent the data colormap rather than a brand pick.
+  // The Ultra Violet family, sorted by luminance rather than by the order the
+  // swatches were given. Colour here encodes a value -- implied volatility --
+  // so the ramp has to rise monotonically in brightness or the surface stops
+  // being readable. In the stated order Red Violet sits darker than Rhapsody
+  // before it, which would put a trough in the middle of the scale.
+  //
+  // A single-hue family carries less perceptual range than magma did, which is
+  // the real cost of this change: neighbouring vol levels are harder to tell
+  // apart. Luminance ordering recovers most of it.
   const MAGMA: [number, number, number][] = [
-    [0.000, 0.001, 0.016], [0.051, 0.031, 0.161], [0.157, 0.043, 0.412],
-    [0.282, 0.043, 0.431], [0.416, 0.090, 0.433], [0.549, 0.161, 0.506],
-    [0.714, 0.212, 0.475], [0.871, 0.288, 0.408], [0.965, 0.435, 0.361],
-    [0.996, 0.624, 0.427], [0.988, 0.992, 0.749],
+    [0.043, 0.031, 0.078],  // near-ground, so the low end recedes
+    [0.373, 0.294, 0.545],  // Ultra Violet 18-3838
+    [0.545, 0.290, 0.545],  // Sparkling Grape 19-3336
+    [0.659, 0.361, 0.510],  // Red Violet 17-1818
+    [0.663, 0.435, 0.647],  // Mulberry 17-3014
+    [0.490, 0.545, 0.780],  // Jacaranda 17-3930
+    [0.851, 0.451, 0.561],  // Chateau Rose 17-2120
+    [0.627, 0.576, 0.753],  // Rhapsody 16-3817
+    [0.941, 0.651, 0.808],  // Prism Pink 14-2311
   ];
 
   function magma(t: number): THREE.Color {

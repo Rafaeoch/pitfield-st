@@ -12,13 +12,19 @@
  * the ripple passes back through the maturities rather than every line moving
  * as one. That is what makes it read as water rather than as a wobble.
  *
- * Colour travels with the wave. Each curve samples the Ultra Violet family,
- * and the sample point moves through the stack as the ripple does, so the mark
- * runs the ramp back to front and front to back, a full pass every cycle.
+ * Colour moves through the stack a band at a time. Every curve holds one
+ * colour, then they turn to the next one by one until the whole mark is
+ * uniform again, and the next colour begins. The direction alternates, so a
+ * change sweeps back to front and the one after it front to back, which reads
+ * as a ripple crossing and returning rather than snapping back to restart.
  *
- * Ultra Violet anchors it. It is also the darkest of the eight and measures
- * 2.6:1 against this ground, so the cycle passes through it rather than
- * resting on it, and text elsewhere uses a lightened tint of the same hue.
+ * The eight are the Pantone Ultra Violet family, in order: Ultra Violet,
+ * Sparkling Grape, Mulberry, Jacaranda, Rhapsody, Red Violet, Chateau Rose,
+ * Prism Pink. A colour every 3.2 seconds, so a full lap takes about 26.
+ *
+ * Ultra Violet anchors the identity and is where the static pose rests. It is
+ * also the darkest of the eight at 2.6:1 against this ground, which is why
+ * text elsewhere uses a lightened tint of the same hue rather than this.
  *
  * Three things it does not do. It does not animate when the reader has asked
  * for reduced motion. It does not animate while the tab is hidden or the mark
@@ -41,23 +47,20 @@ const { size = 30, class: className = '', animate = true } = Astro.props;
 // darkest of the eight, so the cycle deliberately spends most of its time
 // above it: a mark that rested at 2.6:1 against this ground would be dim.
 const RAMP: [number, number, number][] = [
-  [0x5F, 0x4B, 0x8B],  // Ultra Violet
-  [0x8B, 0x4A, 0x8B],  // Sparkling Grape
-  [0xA8, 0x5C, 0x82],  // Red Violet
-  [0xA9, 0x6F, 0xA5],  // Mulberry
-  [0x7D, 0x8B, 0xC7],  // Jacaranda
-  [0xA0, 0x93, 0xC0],  // Rhapsody
-  [0xD9, 0x73, 0x8F],  // Chateau Rose
-  [0xF0, 0xA6, 0xCE],  // Prism Pink
+  [0x5F, 0x4B, 0x8B],  // Ultra Violet    18-3838
+  [0x8B, 0x4A, 0x8B],  // Sparkling Grape 19-3336
+  [0xA9, 0x6F, 0xA5],  // Mulberry        17-3014
+  [0x7D, 0x8B, 0xC7],  // Jacaranda       17-3930
+  [0xA0, 0x93, 0xC0],  // Rhapsody        16-3817
+  [0xA8, 0x5C, 0x82],  // Red Violet      17-1818
+  [0xD9, 0x73, 0x8F],  // Chateau Rose    17-2120
+  [0xF0, 0xA6, 0xCE],  // Prism Pink      14-2311
 ];
 
-function ramp(t: number): string {
-  const u = Math.min(Math.max(t, 0), 1) * (RAMP.length - 1);
-  const i = Math.min(Math.floor(u), RAMP.length - 2);
-  const f = u - i;
-  const a = RAMP[i];
-  const b = RAMP[i + 1];
-  const ch = (j: number) => Math.round(a[j] + (b[j] - a[j]) * f);
+function mix(i: number, j: number, f: number): string {
+  const a = RAMP[i % RAMP.length];
+  const b = RAMP[j % RAMP.length];
+  const ch = (c: number) => Math.round(a[c] + (b[c] - a[c]) * f);
   return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
 }
 
@@ -89,7 +92,7 @@ const lines = Array.from({ length: N }, (_, i) => {
     d: curve(depth),
     width: (2.5 - depth * 1.15).toFixed(2),
     opacity: (1 - depth * 0.42).toFixed(2),
-    stroke: ramp(0.18 + (1 - depth) * 0.62),
+    stroke: mix(0, 0, 0),
     depth,
   };
 });
@@ -133,24 +136,35 @@ const lines = Array.from({ length: N }, (_, i) => {
     const paths = [...svg.querySelectorAll<SVGPathElement>('.mark-line')];
     const depths = paths.map((p) => parseFloat(p.dataset.depth || '0'));
 
-    // Same eight-colour family as the static pose.
+    // The whole stack holds one colour, then changes to the next a band at a
+    // time until every band has turned, then the next colour begins. So the
+    // mark is only ever mid-transition or uniform, never a gradient of eight.
+    //
+    // Direction alternates: one colour sweeps back to front, the next front to
+    // back. A sweep that always ran the same way would snap back to the start
+    // on every change; alternating makes it read as a ripple crossing and
+    // returning.
     const R = g.RAMP as [number, number, number][];
-    const ramp = (v: number) => {
-      const u = Math.min(Math.max(v, 0), 1) * (R.length - 1);
-      const i = Math.min(Math.floor(u), R.length - 2);
-      const f = u - i;
-      const a = R[i], b = R[i + 1];
-      const ch = (j: number) => Math.round(a[j] + (b[j] - a[j]) * f);
+    const mix = (i: number, j: number, f: number) => {
+      const a = R[i % R.length], b = R[j % R.length];
+      const ch = (c: number) => Math.round(a[c] + (b[c] - a[c]) * f);
       return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
     };
 
-    // The colour front sweeps back to front and back again, a half-cycle
-    // behind the wave, so the ramp travels through the stack instead of every
-    // curve changing together. Centred at 0.55 rather than 0.5: the low end of
-    // this family is Ultra Violet, which is dark against this ground, so the
-    // cycle passes through it rather than dwelling there.
-    const colourAt = (depth: number, t: number) =>
-      0.55 - depth * 0.16 + 0.42 * Math.sin(t * 0.42 - depth * 1.8);
+    const N_BANDS = paths.length;
+    const BAND_SPAN = 0.72;   // share of a step spent sweeping; the rest rests
+    const OVERLAP = 1.9;      // >1 lets neighbours blend rather than snap
+
+    const colourFor = (depth: number, step: number, w: number) => {
+      // depth 0 is the front curve, 1 the rearmost.
+      const order = step % 2 === 0 ? 1 - depth : depth;
+      const slot = order * BAND_SPAN * (1 - 1 / N_BANDS);
+      const width = (BAND_SPAN / N_BANDS) * OVERLAP;
+      const f = Math.min(Math.max((w - slot) / width, 0), 1);
+      // Smoothstep, so a band eases into its new colour instead of snapping.
+      const e = f * f * (3 - 2 * f);
+      return mix(step, step + 1, e);
+    };
 
     const build = (depth: number, t: number) => {
       const sc = 1 - 0.3 * depth;
@@ -167,6 +181,8 @@ const lines = Array.from({ length: N }, (_, i) => {
       return d;
     };
 
+    const SECONDS_PER_COLOUR = 3.2;   // eight colours, so a lap is ~26s
+
     let raf = 0;
     let visible = true;
     const start = performance.now();
@@ -175,9 +191,13 @@ const lines = Array.from({ length: N }, (_, i) => {
       // Slow. A logo that moves quickly is a distraction; this should read as
       // a tide rather than an animation.
       const t = ((now - start) / 1000) * 0.55;
+      // One full colour every SECONDS_PER_COLOUR; eight of them per lap.
+      const phase = ((now - start) / 1000) / SECONDS_PER_COLOUR;
+      const step = Math.floor(phase);
+      const w = phase - step;
       for (let i = 0; i < paths.length; i++) {
         paths[i].setAttribute('d', build(depths[i], t));
-        paths[i].setAttribute('stroke', ramp(colourAt(depths[i], t)));
+        paths[i].setAttribute('stroke', colourFor(depths[i], step, w));
       }
       raf = requestAnimationFrame(tick);
     };
