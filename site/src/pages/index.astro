@@ -322,14 +322,33 @@ const counters = [
      would otherwise do: they make the page feel surveyed rather than scrolled,
      without wrapping everything in boxes. */
   .strata {
+    position: relative;
     max-width: 78rem;
     margin: 0 auto;
     padding: 0 clamp(1rem, 4vw, 3rem) 2rem;
   }
   .stratum {
-    padding: clamp(3rem, 7vw, 5.5rem) 0;
+    position: relative;
+    padding: clamp(4rem, 9vw, 7.5rem) 0;
     border-top: 1px solid var(--rule);
   }
+  /* A faint twelve-column rule behind each section. Structural rather than
+     decorative: it shows the measure the page is set on, which is a thing
+     engineering-led sites do and marketing sites never bother with. */
+  .stratum::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 0 5.4rem;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--rule) 55%, transparent) 0 1px,
+      transparent 1px calc(100% / 12)
+    );
+    opacity: 0.5;
+    z-index: 0;
+  }
+  .stratum > * { position: relative; z-index: 1; }
   .stratum-head {
     display: grid;
     grid-template-columns: 4rem minmax(0, 1fr);
@@ -350,10 +369,11 @@ const counters = [
   .stratum-head h2,
   .stratum-head p { grid-column: 2; }
   .stratum-head h2 {
-    margin: 0 0 0.6rem;
-    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
-    letter-spacing: -0.015em;
-    line-height: 1.12;
+    margin: 0 0 0.9rem;
+    font-size: clamp(1.9rem, 3.8vw, 3.2rem);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    max-width: 18ch;
   }
   .stratum-head p {
     margin: 0;
@@ -480,7 +500,9 @@ const counters = [
     position: absolute;
     left: 0;
     bottom: 0;
-    width: min(46rem, 92vw);
+    /* Wide enough that the headline keeps its two-line break at 94px. Type
+       this size dictates the measure rather than fitting into one. */
+    width: min(64rem, 94vw);
     /* Bottom padding clears the surface's own axis legend, which sits in the
        figure's caption. Anchored flush to the bottom the copy lands straight
        on top of it. */
@@ -498,15 +520,15 @@ const counters = [
   .hero-title {
     font-family: var(--display);
     font-weight: 400;
-    font-size: clamp(2.1rem, 5.4vw, 4.1rem);
-    line-height: 1.04;
-    letter-spacing: -0.02em;
+    font-size: clamp(2.3rem, 7.2vw, 5.9rem);
+    line-height: 0.99;
+    letter-spacing: -0.032em;
     margin: 0 0 0.9rem;
     color: var(--type);
     text-wrap: balance;
   }
   .hero-sub {
-    max-width: 34rem;
+    max-width: 32rem;
     margin: 0 0 1.3rem;
     font-size: 0.95rem;
     line-height: 1.6;

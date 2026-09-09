@@ -210,13 +210,18 @@ const isActive = (href: string) =>
            lands on one of these, which is most of what separates a considered
            page from an assembled one. */
         --step--1: 0.855rem;
+        /* The scale was cautious: section headings topped out near 23px where
+           the sites this is measured against set theirs at 64. The confidence
+           of those pages is mostly type size, and the jumps between steps
+           matter as much as the sizes -- a scale that climbs gently reads as
+           documentation however well it is set. */
         --step-0: 1rem;
-        --step-1: 1.16rem;
-        --step-2: clamp(1.24rem, 1.6vw, 1.42rem);
-        --step-3: clamp(1.6rem, 3.1vw, 2.35rem);
+        --step-1: 1.18rem;
+        --step-2: clamp(1.7rem, 3.2vw, 2.9rem);
+        --step-3: clamp(2.1rem, 4.2vw, 3.4rem);
         /* Page titles. The existing scale topped out at a size that reads as a
            section heading, which is why every interior page opened quietly. */
-        --step-4: clamp(2.2rem, 4.6vw, 3.5rem);
+        --step-4: clamp(2.6rem, 6.4vw, 5.2rem);
       }
 
       * { box-sizing: border-box; }
@@ -233,7 +238,7 @@ const isActive = (href: string) =>
           no-repeat var(--void);
         color: var(--type);
         font-family: var(--serif);
-        font-size: 16px;
+        font-size: 17px;
         line-height: 1.65;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
@@ -372,7 +377,10 @@ const isActive = (href: string) =>
       }
       h2 {
         font-size: var(--step-2);
-        font-variation-settings: 'opsz' 28;
+        font-variation-settings: 'opsz' 48;
+        letter-spacing: -0.022em;
+        line-height: 1.08;
+        max-width: 22ch;
         /* Space above a heading is what separates sections; space below is
            what glues the heading to its own text. The gap between them should
            be lopsided, and generously so. */
