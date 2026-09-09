@@ -248,6 +248,8 @@ def calibrate(
     seed: SVIParams | None = None,
     n_dropped: int = 0,
     check_grid=CHECK_GRID,
+    floor: SVIParams | None = None,
+    floor_support: tuple[float, float] | None = None,
 ) -> SurfaceFit:
     """Calibrate raw SVI to one expiry by constrained weighted least squares.
 
@@ -256,6 +258,19 @@ def calibrate(
     ``seed`` is the previous day's parameters when available; surfaces move
     slowly, so yesterday's fit is a good starting point and keeps the parameter
     time series stable rather than jumping between equivalent optima.
+
+    ``floor`` is the previously fitted, shorter-dated expiry. When supplied,
+    this fit is constrained so its total variance never falls below that one
+    across ``floor_support``, which makes calendar arbitrage impossible by
+    construction rather than something to detect afterwards.
+
+    It is not free, and the cost is the point. Between expiries a day or two
+    apart the true variance increment is smaller than the noise in the quotes,
+    so the constraint is not recovering an ordering the market expressed; it is
+    imposing one the market did not. The price is paid in fit: the surface must
+    match observed prices less well to satisfy it. Whether that trade is worth
+    making is an empirical question about the size of the RMSE increase, which
+    is why both numbers are published.
 
     ``check_grid`` is the log-moneyness range the butterfly condition is
     evaluated on. It should be the range the surface is *published* over, not
@@ -298,6 +313,23 @@ def calibrate(
             "fun": lambda th: th[0] + th[1] * th[4] * np.sqrt(max(1.0 - th[2] ** 2, 0.0)),
         }
     ]
+
+    if floor is not None:
+        # Evaluated where both expiries have quotes and where this surface is
+        # published. Constraining it out in the extrapolated wings would trade
+        # real fit quality for a guarantee about numbers nobody can see.
+        lo, hi = floor_support if floor_support is not None else (-np.inf, np.inf)
+        grid = np.asarray(check_grid, dtype=float)
+        grid = grid[(grid >= lo) & (grid <= hi)]
+        if grid.size:
+            floor_w = floor.total_variance(grid)
+
+            def calendar_floor(th: np.ndarray, g=grid, fw=floor_w) -> np.ndarray:
+                a, b, rho, m, sig = th
+                x = g - m
+                return (a + b * (rho * x + np.sqrt(np.square(x) + sig**2))) - fw
+
+            constraints.append({"type": "ineq", "fun": calendar_floor})
     bounds = [
         (-2.0, 2.0),        # a
         (0.0, 10.0),        # b >= 0

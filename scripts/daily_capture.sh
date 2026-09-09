@@ -16,6 +16,12 @@ STAMP=$(date +%Y-%m-%d)
   # Ephemeris exports every day, market open or not. The moon page renders
   # "today", so a stale export shows the wrong phase — and unlike the chain
   # capture this depends on the calendar, not on the exchange being open.
+  # Turn the captured chains into the published archive. Until this ran, the
+  # capture wrote Parquet that nothing read and the site published simulated
+  # surfaces however much real data the server collected.
+  ./.venv/bin/python -m pipeline.run_day --source captures --out site/public/data
+  echo "archive exit=$?"
+
   ./.venv/bin/python -m pipeline.publish.export_celestial --out site/public/data
   echo "celestial exit=$?"
 
