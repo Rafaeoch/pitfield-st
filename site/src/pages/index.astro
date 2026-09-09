@@ -343,6 +343,12 @@ const counters = [
     color: var(--accent);
     padding-top: 0.55rem;
   }
+  /* The header is a two-column grid with three children, so without explicit
+     placement the paragraph falls onto a second row inside the 4rem number
+     column and wraps to a 64px-wide ribbon 850px tall. Both the heading and
+     the paragraph belong in column two. */
+  .stratum-head h2,
+  .stratum-head p { grid-column: 2; }
   .stratum-head h2 {
     margin: 0 0 0.6rem;
     font-size: clamp(1.5rem, 2.6vw, 2.1rem);
