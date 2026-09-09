@@ -89,6 +89,50 @@ const chartData = {
   <h2>Term structure</h2>
   <div class="chart" id="chart-term"></div>
 
+  <h2>Momentum and trend</h2>
+  <p class="small muted">
+    Computed from the underlying's own price history, not from the option
+    chain. Trailing returns are simple, not annualised. The 12 minus 1 measure
+    is Jegadeesh and Titman's: the twelve-month return excluding the most
+    recent month, since that last month tends to reverse and including it
+    contaminates the signal with short-term mean reversion.
+  </p>
+  <div class="pair">
+    <table>
+      <tbody>
+        <tr><th>Return, 1 month</th><td class="n">{pct(m.return_1m, 2)}%</td></tr>
+        <tr><th>Return, 3 months</th><td class="n">{pct(m.return_3m, 2)}%</td></tr>
+        <tr><th>Return, 6 months</th><td class="n">{pct(m.return_6m, 2)}%</td></tr>
+        <tr><th>Return, 12 months</th><td class="n">{pct(m.return_12m, 2)}%</td></tr>
+        <tr><th>Momentum, 12 minus 1</th><td class="n">{pct(m.momentum_12_1, 2)}%</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <tbody>
+        <tr><th>Distance from 50-day average</th><td class="n">{pct(m.dist_from_ma50, 2)}%</td></tr>
+        <tr><th>Distance from 200-day average</th><td class="n">{pct(m.dist_from_ma200, 2)}%</td></tr>
+        <tr><th>Drawdown, current</th><td class="n">{pct(m.drawdown_current, 2)}%</td></tr>
+        <tr><th>Drawdown, worst in 252 days</th><td class="n">{pct(m.drawdown_max_252, 2)}%</td></tr>
+        <tr><th>Downside deviation, 252 days</th><td class="n">{pct(m.downside_deviation_252, 2)}%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Shape of the return distribution</h3>
+  <p class="small muted">
+    Daily log returns over the trailing year. Excess kurtosis is measured
+    against a normal distribution, so zero means normal-tailed rather than
+    thin-tailed. Equity index returns are reliably negatively skewed and
+    fat-tailed, which is the whole reason a volatility surface has a smile
+    instead of a flat line.
+  </p>
+  <table>
+    <tbody>
+      <tr><th>Realized skew</th><td class="n">{num(m.realized_skew, 3)}</td></tr>
+      <tr><th>Realized excess kurtosis</th><td class="n">{num(m.realized_excess_kurtosis, 3)}</td></tr>
+    </tbody>
+  </table>
+
   <h2>Realized volatility</h2>
   <p class="small muted">
     Five estimators, annualised on 252 trading days. They disagree by
@@ -193,6 +237,16 @@ const chartData = {
 </Base>
 
 <style>
+  /* Two readouts side by side, stacking on narrow screens. The metrics divide
+     naturally into how the price has moved and how far it sits from its own
+     history, so they are set as two tables rather than one long column. */
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    gap: 0 3rem;
+    align-items: start;
+  }
+
   .full { margin: 1.6rem 0 0; }
   .grid-2 {
     display: grid;
