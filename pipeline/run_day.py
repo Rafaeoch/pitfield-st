@@ -625,6 +625,40 @@ def compute_day(
     }
 
 
+def _session_calendar(back_days: int = 40, forward_days: int = 40) -> dict:
+    """Recent and upcoming NYSE sessions, with their closes in UTC.
+
+    Small on purpose: enough for a reader to see how many sessions the archive
+    has missed and when the next one lands, without shipping a calendar.
+    """
+    import pandas_market_calendars as mcal
+
+    today = date.today()
+    nyse = mcal.get_calendar("NYSE")
+    sched = nyse.schedule(
+        start_date=(today - timedelta(days=back_days)).isoformat(),
+        end_date=(today + timedelta(days=forward_days)).isoformat(),
+    )
+
+    sessions = [
+        {
+            "date": ts.date().isoformat(),
+            # Closes vary: half days end at 13:00 ET. Publishing the real close
+            # means the page never calls a session missing while it is still
+            # trading.
+            "close_utc": row["market_close"].tz_convert("UTC").isoformat(),
+        }
+        for ts, row in sched.iterrows()
+    ]
+    return {
+        "generated_for": today.isoformat(),
+        # The capture runs this long after the close, so a reader should not
+        # expect a session to appear before then.
+        "capture_delay_minutes": 26,
+        "sessions": sessions,
+    }
+
+
 def _clean(value):
     """JSON has no NaN. Publish null instead, so a missing number stays missing."""
     if isinstance(value, (bool, str)) or value is None:
@@ -876,6 +910,15 @@ def main() -> None:
         "latest_date": latest["date"],
         "n_days": len(records),
         "dates": [r["date"] for r in records],
+        # The trading sessions either side of today, so a reader's browser can
+        # work out whether this archive is current without asking anything.
+        #
+        # It has to be the browser that decides. If the pipeline stops, the site
+        # is never rebuilt, so anything computed here would be frozen at the
+        # last good build and would go on insisting all was well. Publishing the
+        # calendar instead lets a page served from a dead pipeline still notice
+        # that it is stale.
+        "calendar": _session_calendar(),
         "contract_days": sum(r["coverage"]["n_chain_rows"] for r in records),
         "history": [
             {

@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import DataProvenance from '../components/DataProvenance.astro';
+import Freshness from '../components/Freshness.astro';
 import { getIndex, getLatest, num, pct, int } from '../lib/archive';
 
 const latest = getLatest();
@@ -15,6 +16,7 @@ const history = index?.history ?? [];
   description="The daily quality-control report for the archive: crossed markets, zero-bid share, stale quotes, fit failures and exclusion rates."
 >
   <DataProvenance synthetic={latest?.synthetic} feed={latest?.feed ?? null} />
+  <Freshness latestDate={index?.latest_date} />
 
   <h1>Quality</h1>
   <p class="lede">

@@ -3,6 +3,7 @@ import Base from '../layouts/Base.astro';
 import VolSurface from '../components/VolSurface.astro';
 import { getIndex, getLatest, formatSnapshotET, int, pct } from '../lib/archive';
 import VolHistory from '../components/VolHistory.astro';
+import Freshness from '../components/Freshness.astro';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -97,6 +98,8 @@ const counters = [
         <a href="/about/">What that means</a>
       </p>
     )}
+
+    <Freshness latestDate={index?.latest_date} />
 
     <p class="counters">
       {counters.map((c, i) => (

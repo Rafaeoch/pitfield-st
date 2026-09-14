@@ -1,0 +1,118 @@
+---
+/**
+ * Says whether the archive is current, and how it knows.
+ *
+ * A published date three days old means one of two very different things: the
+ * market was shut, or the pipeline died. A reader cannot tell them apart, and
+ * the second one is the one worth knowing about.
+ *
+ * The judgement happens in the browser rather than at build time, and that is
+ * the whole point. If the pipeline stops, the site is never rebuilt, so
+ * anything decided here at build time would be frozen at the last good run and
+ * would go on reporting that all is well for as long as the failure lasted.
+ * The index publishes the trading calendar instead, and the page works it out
+ * on each view. A site served from a dead pipeline can then still say so.
+ *
+ * Renders a correct static line with no JavaScript, stating what was published;
+ * the script only adds the comparison against today.
+ */
+interface Props { latestDate?: string | null }
+const { latestDate } = Astro.props;
+---
+
+{latestDate && (
+  <p class="freshness" data-latest={latestDate}>
+    <span class="dot" aria-hidden="true"></span>
+    <span class="freshness-text">Last published session: {latestDate}.</span>
+  </p>
+)}
+
+<style>
+  .freshness {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    margin: 0 0 1.2rem;
+    font-size: 0.82rem;
+    color: var(--type-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .freshness .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--type-muted);
+    flex: none;
+    transform: translateY(-1px);
+  }
+  .freshness[data-state='current'] .dot { background: var(--accent); }
+  .freshness[data-state='behind'] .dot { background: var(--fault); }
+  .freshness[data-state='behind'] { color: var(--fault); }
+  .freshness[data-state='behind'] .freshness-text { color: var(--fault); }
+</style>
+
+<script>
+  type Session = { date: string; close_utc: string };
+
+  for (const el of document.querySelectorAll<HTMLElement>('.freshness')) {
+    const latest = el.dataset.latest;
+    if (!latest) continue;
+
+    fetch('/data/index.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((index) => {
+        const cal = index?.calendar;
+        const sessions: Session[] = cal?.sessions ?? [];
+        if (!sessions.length) return;
+
+        const delayMs = (cal.capture_delay_minutes ?? 26) * 60_000;
+        const now = Date.now();
+
+        // A session only counts as due once its close has passed plus the lag
+        // the capture runs at. Without that the page would call a session
+        // missing while it was still trading.
+        const due = sessions.filter(
+          (s) => new Date(s.close_utc).getTime() + delayMs <= now
+        );
+        if (!due.length) return;
+
+        const expected = due[due.length - 1].date;
+        const missing = due.filter((s) => s.date > latest).length;
+
+        const text = el.querySelector<HTMLElement>('.freshness-text');
+        if (!text) return;
+
+        if (missing === 0) {
+          const next = sessions.find((s) => s.date > latest);
+          const when = next
+            ? new Date(next.close_utc).getTime() + delayMs
+            : null;
+          const label = when
+            ? new Intl.DateTimeFormat('en-GB', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                hour: 'numeric',
+                minute: '2-digit',
+                timeZone: 'America/New_York',
+              }).format(new Date(when)) + ' ET'
+            : null;
+
+          el.dataset.state = 'current';
+          text.textContent = label
+            ? `Current. ${latest} is the last completed session; the next is captured ${label}.`
+            : `Current. ${latest} is the last completed session.`;
+        } else {
+          el.dataset.state = 'behind';
+          text.textContent =
+            `${missing} session${missing === 1 ? '' : 's'} behind. ` +
+            `Last published ${latest}; ${expected} has closed and is not here yet.`;
+        }
+      })
+      .catch(() => {
+        /* Leave the static line alone. A failed fetch is not evidence of a
+           stale archive, and claiming otherwise would be the same error in the
+           opposite direction. */
+      });
+  }
+</script>
