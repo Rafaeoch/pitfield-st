@@ -1,0 +1,55 @@
+name: tests
+
+# What CI is for on this project, now that the archive runs on its own server:
+# proving the code in this repository still works. It does not capture, compute
+# or publish anything.
+#
+# It replaces a daily workflow that did try to. That one built a synthetic
+# archive on a runner, published none of it because the publish steps were
+# never wired up, and had been failing every night: it called `make daily`, and
+# the Makefile's targets run .venv/bin/python, which a fresh runner does not
+# have. It sent a failure email every day for work the server was already doing
+# properly.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Node too: the suite tests no components, but a site that stops
+      # compiling is as much a regression as a fit that stops converging.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install site dependencies
+        run: npm ci --prefix site --no-audit --no-fund
+
+      # Invoked directly rather than through the Makefile, whose targets assume
+      # a local .venv. That assumption is exactly what broke the old workflow.
+      - name: Tests
+        run: python -m pytest tests/ -q
+
+      - name: Build the site
+        run: npm run build --prefix site
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
