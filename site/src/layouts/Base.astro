@@ -195,6 +195,12 @@ const isActive = (href: string) =>
            these grounds. */
         --ground-1: #0b1017;
         --ground-2: #1E2228;
+        /* The grid gets its own colour rather than borrowing --rule. A border
+           wants to be nearly invisible; the column grid is meant to be seen.
+           Drawn through --rule at 0.55 it rendered at 1.19 contrast on black
+           and 1.10 on the grey band, which is to say not at all. This is 2.62
+           and 2.20, at full opacity so the two grounds do not diverge. */
+        --grid: #4A5868;
 
         --violet: #5F4B8B;          /* Ultra Violet 18-3838, the anchor */
         --accent: #8E7AB8;          /* same hue, legible: 5.11:1 */
@@ -368,10 +374,9 @@ const isActive = (href: string) =>
         z-index: 0;
         background-image: repeating-linear-gradient(
           to right,
-          var(--rule) 0 1px,
+          var(--grid) 0 1px,
           transparent 1px calc(100% / 12)
         );
-        opacity: 0.55;
       }
       main.wide::before { display: none; }
       main > * { position: relative; z-index: 1; }
@@ -397,10 +402,12 @@ const isActive = (href: string) =>
         z-index: 0;
         background-image: repeating-linear-gradient(
           to bottom,
-          var(--rule) 0 1px,
+          var(--grid) 0 1px,
           transparent 1px 2.4rem
         );
-        opacity: 0.38;
+        /* Held back inside a frame: there it sits behind numbers rather than
+           behind prose, and has to stay out of their way. */
+        opacity: 0.45;
       }
       .frame > * { position: relative; z-index: 1; }
       /* A bordered table needs its columns off the edge, and the collapsed
