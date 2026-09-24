@@ -345,6 +345,8 @@ const counters = [
     );
     z-index: 0;
   }
+  /* Grey strata carry no ruling: their ground already separates them. */
+  .stratum.band--2::before { display: none; }
   .stratum > * { position: relative; z-index: 1; }
   .stratum-head {
     display: grid;

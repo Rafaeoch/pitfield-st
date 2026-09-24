@@ -198,9 +198,10 @@ const isActive = (href: string) =>
         /* The grid gets its own colour rather than borrowing --rule. A border
            wants to be nearly invisible; the column grid is meant to be seen.
            Drawn through --rule at 0.55 it rendered at 1.19 contrast on black
-           and 1.10 on the grey band, which is to say not at all. This is 2.62
-           and 2.20, at full opacity so the two grounds do not diverge. */
-        --grid: #4A5868;
+           and 1.10 on the grey band, which is to say not at all. This is 3.26
+           against black, at full opacity. It is only ever drawn on the black
+           ground now, so there is no second contrast to balance against. */
+        --grid: #586678;
 
         --violet: #5F4B8B;          /* Ultra Violet 18-3838, the anchor */
         --accent: #8E7AB8;          /* same hue, legible: 5.11:1 */
@@ -433,6 +434,12 @@ const isActive = (href: string) =>
         padding-right: calc(50vw - 39rem);
       }
       .band--2 { background: var(--ground-2); }
+
+      /* The grid belongs to the black ground only. A grey band is already
+         doing the work of separating itself, and ruling it too gave the page
+         two competing structures at once. The band's opaque background masks
+         the layout grid behind it; this stops any frame-level ruling as well. */
+      .band--2::before { display: none; }
 
       /* Each band publishes its own ground so anything sitting inside it can
          match. Without this a data frame would have to guess which band it is
