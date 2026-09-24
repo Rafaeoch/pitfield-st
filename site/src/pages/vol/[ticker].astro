@@ -54,7 +54,7 @@ const chartData = {
   <section class="band">
   <h2>Implied volatility</h2>
   <div class="grid-2">
-    <table>
+    <table class="frame">
       <tbody>
         <tr><th>ATM implied, 30 day</th><td class="n">{pct(m.iv_30)}%</td></tr>
         <tr><th>ATM implied, 60 day</th><td class="n">{pct(m.iv_60)}%</td></tr>
@@ -63,7 +63,7 @@ const chartData = {
         <tr><th>Term shape</th><td class="n">{m.term_shape ?? '—'}</td></tr>
       </tbody>
     </table>
-    <table>
+    <table class="frame">
       <tbody>
         <tr><th>IV rank, 252 day</th><td class="n">{m.iv_rank == null ? '—' : pct(m.iv_rank, 1) + '%'}</td></tr>
         <tr><th>IV percentile</th><td class="n">{m.iv_percentile == null ? '—' : pct(m.iv_percentile, 1) + '%'}</td></tr>
@@ -105,7 +105,7 @@ const chartData = {
     contaminates the signal with short-term mean reversion.
   </p>
   <div class="pair">
-    <table>
+    <table class="frame">
       <tbody>
         <tr><th>Return, 1 month</th><td class="n">{pct(m.return_1m, 2)}%</td></tr>
         <tr><th>Return, 3 months</th><td class="n">{pct(m.return_3m, 2)}%</td></tr>
@@ -114,7 +114,7 @@ const chartData = {
         <tr><th>Momentum, 12 minus 1</th><td class="n">{pct(m.momentum_12_1, 2)}%</td></tr>
       </tbody>
     </table>
-    <table>
+    <table class="frame">
       <tbody>
         <tr><th>Distance from 50-day average</th><td class="n">{pct(m.dist_from_ma50, 2)}%</td></tr>
         <tr><th>Distance from 200-day average</th><td class="n">{pct(m.dist_from_ma200, 2)}%</td></tr>
@@ -133,7 +133,7 @@ const chartData = {
     fat-tailed, which is the whole reason a volatility surface has a smile
     instead of a flat line.
   </p>
-  <table>
+  <table class="frame">
     <tbody>
       <tr><th>Realized skew</th><td class="n">{num(m.realized_skew, 3)}</td></tr>
       <tr><th>Realized excess kurtosis</th><td class="n">{num(m.realized_excess_kurtosis, 3)}</td></tr>
@@ -149,7 +149,7 @@ const chartData = {
     the overnight gap, which is exactly what Yang–Zhang adds back.
   </p>
   <div class="table-scroll">
-    <table>
+    <table class="frame">
       <thead>
         <tr>
           <th>Estimator</th>
@@ -186,14 +186,14 @@ const chartData = {
     </p>
   </div>
   <div class="grid-2">
-    <table>
+    <table class="frame">
       <tbody>
         <tr><th>Total gamma exposure</th><td class="n">{money(agg.gex_total)}</td></tr>
         <tr><th>Gamma flip strike</th><td class="n">{num(agg.gamma_flip_strike, 2)}</td></tr>
         <tr><th>Max-gamma strike</th><td class="n">{num(agg.max_gamma_strike, 2)}</td></tr>
       </tbody>
     </table>
-    <table>
+    <table class="frame">
       <tbody>
         <tr><th>Max open-interest strike</th><td class="n">{num(agg.max_oi_strike, 2)}</td></tr>
         <tr><th>Put/call ratio, volume</th><td class="n">{num(agg.put_call_ratio_volume, 3)}</td></tr>
@@ -207,7 +207,7 @@ const chartData = {
   <section class="band">
   <h2>Fit quality, by expiry</h2>
   <div class="table-scroll">
-    <table>
+    <table class="frame">
       <thead>
         <tr>
           <th class="n">Days</th>

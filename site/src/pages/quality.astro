@@ -28,7 +28,7 @@ const history = index?.history ?? [];
   <section class="band">
   <h2>Today, {latest?.date}</h2>
   <div class="grid-2">
-    <table>
+    <table class="frame">
       <tbody>
         <tr><th>Chain rows ingested</th><td class="n">{int(q.n_rows)}</td></tr>
         <tr><th>Contracts used in fits</th><td class="n">{int(cov.n_contracts_in_fits)}</td></tr>
@@ -37,7 +37,7 @@ const history = index?.history ?? [];
         <tr><th>Expiries rejected</th><td class="n">{q.expiries_rejected}</td></tr>
       </tbody>
     </table>
-    <table>
+    <table class="frame">
       <tbody>
         <tr>
           <th>Crossed markets (bid &gt; ask)</th>
@@ -68,7 +68,7 @@ const history = index?.history ?? [];
     <>
       <h3>Expiries rejected today</h3>
       <div class="table-scroll">
-        <table>
+        <table class="frame">
           <thead>
             <tr><th class="n">Days</th><th>Reason</th><th class="n">Parity R²</th></tr>
           </thead>
@@ -95,7 +95,7 @@ const history = index?.history ?? [];
         fit weights assume a roughly even strike grid.
       </p>
       <div class="table-scroll">
-        <table>
+        <table class="frame">
           <thead>
             <tr>
               <th>Expiry</th><th class="n">After</th><th class="n">Before</th>

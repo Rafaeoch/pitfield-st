@@ -170,7 +170,7 @@ const counters = [
           numbers behind the surface above.
         </p>
       </header>
-      <div class="grid-4">
+      <div class="grid-4 frame">
         <div class="cell">
           <span class="cell-k">30-day implied</span>
           <span class="cell-v">{pct(m.iv_30)}%</span>
@@ -254,7 +254,7 @@ const counters = [
           show how readily data of this kind will fool you.
         </p>
       </header>
-      <div class="grid-3">
+      <div class="grid-3 frame">
         <div class="cell">
           <span class="cell-k">Significant, uncorrected</span>
           <span class="cell-v">{sig.raw}</span>
@@ -272,7 +272,7 @@ const counters = [
         </div>
       </div>
       {topFindings.length > 0 && (
-        <table class="findings">
+        <table class="findings frame">
           <thead>
             <tr><th>Hypothesis</th><th>Bucket</th><th class="n">Effect</th><th class="n">p</th></tr>
           </thead>
@@ -392,14 +392,17 @@ const counters = [
   .grid-4, .grid-3 {
     display: grid;
     gap: 1px;
+    /* The gap shows this through as the cell dividers, so the frame's own
+       horizontal ruling would be hidden behind the cells anyway. Left to the
+       cells, which carry the band ground. */
     background: var(--rule);
-    border: 1px solid var(--rule);
     margin-left: 5.4rem;
   }
+  .grid-4.frame::before, .grid-3.frame::before { display: none; }
   .grid-4 { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
   .grid-3 { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
   .cell {
-    background: var(--void);
+    background: var(--frame-bg, var(--void));
     padding: 1.3rem 1.4rem 1.5rem;
     display: flex;
     flex-direction: column;
@@ -449,7 +452,14 @@ const counters = [
   .steps p { margin: 0; font-size: 0.87rem; line-height: 1.6; color: var(--type-muted); }
 
   /* ---- findings table -------------------------------------------------- */
-  .findings { margin: 2rem 0 0 5.4rem; width: calc(100% - 5.4rem); }
+  .findings {
+    margin: 2rem 0 0 5.4rem;
+    width: calc(100% - 5.4rem);
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .findings th, .findings td { padding-left: 1rem; }
+  .findings th:first-child, .findings td:first-child { padding-left: 1.1rem; }
   .findings td.muted { color: var(--type-muted); }
 
   /* ---- papers ---------------------------------------------------------- */

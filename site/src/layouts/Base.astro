@@ -371,10 +371,50 @@ const isActive = (href: string) =>
           var(--rule) 0 1px,
           transparent 1px calc(100% / 12)
         );
-        opacity: 0.30;
+        opacity: 0.55;
       }
       main.wide::before { display: none; }
       main > * { position: relative; z-index: 1; }
+
+      /* Where a frame holds data, the grid turns. The vertical ruling is the
+         measure of the page and has no business crossing a table of numbers;
+         inside a frame it runs horizontally instead, along the rows, which is
+         the direction the eye already reads them in.
+
+         The opaque ground is what stops the vertical lines: they are painted
+         behind the content, so a frame that paints its own ground masks them
+         over its own area and nothing has to be cut out. */
+      .frame {
+        position: relative;
+        background: var(--frame-bg, var(--ground-1));
+        border: 1px solid var(--rule);
+      }
+      .frame::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image: repeating-linear-gradient(
+          to bottom,
+          var(--rule) 0 1px,
+          transparent 1px 2.4rem
+        );
+        opacity: 0.38;
+      }
+      .frame > * { position: relative; z-index: 1; }
+      /* A bordered table needs its columns off the edge, and the collapsed
+         border model will not let a table carry one, so it is separated. */
+      table.frame {
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+      table.frame th,
+      table.frame td { padding-left: 1rem; }
+      table.frame th:last-child,
+      table.frame td:last-child { padding-right: 1rem; }
+      /* Rows already rule themselves; a second rhythm behind them is noise. */
+      table.frame::before { display: none; }
 
       /* Full-bleed section grounds. The band spans the viewport while its
          contents stay on the measure. */
@@ -386,6 +426,19 @@ const isActive = (href: string) =>
         padding-right: calc(50vw - 39rem);
       }
       .band--2 { background: var(--ground-2); }
+
+      /* Each band publishes its own ground so anything sitting inside it can
+         match. Without this a data frame would have to guess which band it is
+         in, and would guess wrong half the time. */
+      .band { --frame-bg: var(--ground-1); }
+      .band--2 { --frame-bg: var(--ground-2); }
+
+      /* A cut edge rather than a soft change of tone. The ground alone shifts
+         by 1.19 in luminance, which reads as a gradient on a large screen; a
+         hairline at the boundary makes it a block. */
+      .band + .band,
+      .band--2 { border-top: 1px solid var(--rule); }
+      .band--2 { border-bottom: 1px solid var(--rule); }
       /* A band carries a ground, so it needs air inside it or the colour
          change lands hard against the text. Applied to banded interior pages;
          the homepage strata set their own larger rhythm. */

@@ -147,7 +147,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
 
       <h3>By tier</h3>
       <div class="table-scroll">
-        <table>
+        <table class="frame">
           <thead><tr><th>Tier</th><th class="n">Tests</th><th class="n">p &lt; 0.05</th><th class="n">Rate</th></tr></thead>
           <tbody>
             <tr><th>1, plausible mechanism</th><td class="n">{byTier[1]?.n}</td><td class="n">{byTier[1]?.sig}</td><td class="n">{pct(byTier[1]?.sig, byTier[1]?.n)}%</td></tr>

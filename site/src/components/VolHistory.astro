@@ -65,6 +65,17 @@ const band =
 const ticks: number[] = [];
 for (let v = yMin; v <= yMax + 1e-9; v += step) ticks.push(v);
 
+/** Day and month once the span is short, month and year once it is long.
+ *  Slicing to year-month was fine over years and useless inside one: with a
+ *  fortnight of sessions every label read the same. */
+function formatTick(iso: string): string {
+  const span = rows.length ? rows[rows.length - 1].date.slice(0, 7) !== rows[0].date.slice(0, 7) : false;
+  const [y, m, d] = iso.split('-');
+  return span && rows.length > 90 ? `${m}/${y.slice(2)}` : `${d} ${MONTHS[Number(m) - 1]}`;
+}
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 // A handful of date labels, not one per session.
 const labelEvery = Math.max(1, Math.floor(rows.length / 6));
 const xLabels = rows
@@ -89,7 +100,7 @@ const payload = rows.map((d) => ({
       </span>
     </figcaption>
 
-    <div class="vh-wrap">
+    <div class="vh-wrap frame">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
@@ -109,7 +120,7 @@ const payload = rows.map((d) => ({
 
         {xLabels.map(({ i, date }) => (
           <text class="tick" x={x(i)} y={H - 8} text-anchor="middle">
-            {date.slice(2, 7)}
+            {formatTick(date)}
           </text>
         ))}
 
@@ -165,6 +176,11 @@ const payload = rows.map((d) => ({
   .vh-note { margin-left: 0.7rem; opacity: 0.7; }
 
   .vh-wrap { position: relative; }
+  /* The chart draws its own horizontal gridlines at the value ticks, so the
+     frame's generic ruling would sit behind them at a different rhythm and
+     read as moire. */
+  .vh-wrap.frame::before { display: none; }
+  .vh-wrap.frame { padding: 0.8rem 0.9rem 0.2rem; }
   .vh svg {
     width: 100%;
     height: auto;
