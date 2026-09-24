@@ -201,7 +201,11 @@ const isActive = (href: string) =>
            and 1.10 on the grey band, which is to say not at all. This is 3.26
            against black, at full opacity. It is only ever drawn on the black
            ground now, so there is no second contrast to balance against. */
-        --grid: #586678;
+        --grid: #67768A;
+        /* The same grid, brighter, revealed only within a radius of the
+           pointer. It sits above --grid rather than replacing it, so the
+           structure is always there and the cursor lights part of it. */
+        --grid-hot: #9AA7B8;
 
         --violet: #5F4B8B;          /* Ultra Violet 18-3838, the anchor */
         --accent: #8E7AB8;          /* same hue, legible: 5.11:1 */
@@ -380,6 +384,41 @@ const isActive = (href: string) =>
         );
       }
       main.wide::before { display: none; }
+
+      /* The lit layer. Same lines, brighter, shown through a soft circular
+         mask that follows the pointer. Until the pointer arrives the mask sits
+         far off-screen, so nothing is lit and nothing has to be toggled. */
+      main::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image: repeating-linear-gradient(
+          to right,
+          var(--grid-hot) 0 1px,
+          transparent 1px calc(100% / 12)
+        );
+        -webkit-mask-image: radial-gradient(
+          260px circle at var(--grid-x, -1000px) var(--grid-y, -1000px),
+          #000 0%,
+          rgba(0, 0, 0, 0.55) 45%,
+          transparent 72%
+        );
+        mask-image: radial-gradient(
+          260px circle at var(--grid-x, -1000px) var(--grid-y, -1000px),
+          #000 0%,
+          rgba(0, 0, 0, 0.55) 45%,
+          transparent 72%
+        );
+      }
+      main.wide::after { display: none; }
+      /* A grey band paints over both layers, so the lighting stops at its edge
+         exactly as the base grid does. */
+      @media (prefers-reduced-motion: reduce) {
+        main::after { display: none; }
+      }
+
       main > * { position: relative; z-index: 1; }
 
       /* Where a frame holds data, the grid turns. The vertical ruling is the
@@ -666,5 +705,44 @@ const isActive = (href: string) =>
         }
       }
     </style>
+  <script>
+    // Light the grid near the pointer. Coordinates are written as custom
+    // properties on <main> and a masked overlay does the rest, so nothing is
+    // recalculated in JavaScript per frame beyond two numbers.
+    //
+    // Coalesced into a rAF: pointermove fires far more often than the screen
+    // refreshes, and writing a custom property on every event would invalidate
+    // style more times than it could possibly paint.
+    (() => {
+      const main = document.querySelector('main');
+      if (!main || main.classList.contains('wide')) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      let x = 0, y = 0, queued = false;
+
+      const apply = () => {
+        queued = false;
+        main.style.setProperty('--grid-x', `${x}px`);
+        main.style.setProperty('--grid-y', `${y}px`);
+      };
+
+      main.addEventListener('pointermove', (e) => {
+        const box = main.getBoundingClientRect();
+        x = e.clientX - box.left;
+        y = e.clientY - box.top;
+        if (!queued) {
+          queued = true;
+          requestAnimationFrame(apply);
+        }
+      });
+
+      // Off the element, put the mask back out of range rather than leaving
+      // the last lit spot glowing behind the reader.
+      main.addEventListener('pointerleave', () => {
+        main.style.setProperty('--grid-x', '-1000px');
+        main.style.setProperty('--grid-y', '-1000px');
+      });
+    })();
+  </script>
   </body>
 </html>
