@@ -3,6 +3,7 @@ import Base from '../layouts/Base.astro';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { getLatest } from '../lib/archive';
+import Heading from '../components/Heading.astro';
 
 const latest = getLatest();
 
@@ -28,35 +29,34 @@ const eq = {
   yz: String.raw`\sigma^2_{YZ} = \sigma^2_{\text{overnight}} + k\,\sigma^2_{\text{oc}} + (1-k)\,\sigma^2_{RS}, \qquad k = \frac{0.34}{1.34 + \frac{N+1}{N-1}}`,
   vrp: String.raw`\mathrm{VRP}(t) = \mathrm{IV}_{30}(t) - \mathrm{RV}_{30}(t \to t+30)`,
 };
+
+const sections = [
+  { id: 'forward', label: 'Forward and rate extraction' },
+  { id: 'surface', label: 'Surface calibration' },
+  { id: 'arbitrage', label: 'Arbitrage conditions' },
+  { id: 'greeks', label: 'Greeks and units' },
+  { id: 'metrics', label: 'Derived metrics' },
+  { id: 'realized', label: 'Realized volatility' },
+  { id: 'aggregates', label: 'Chain aggregates' },
+  { id: 'filters', label: 'Filtering and exclusions' },
+  { id: 'limitations', label: 'Known limitations' },
+];
 ---
 
 <Base
   title="Methodology"
   description="How the archive computes forwards, implied volatilities, arbitrage-free surfaces, greeks and chain aggregates."
+  sections={sections}
 >
-  <h1>Methodology</h1>
-  <p class="lede">
+  <div class="page">
+  <Heading level={1} no="4">Methodology</Heading>
+  <p>
     Every metric published on this site traces to a formula on this page. Where
     a choice was made, a convention, a filter, an assumption about flow, it is
     named here rather than buried in code.
   </p>
 
-  <nav class="toc" aria-label="Contents">
-    <ol>
-      <li><a href="#forward">Forward and rate extraction</a></li>
-      <li><a href="#surface">Surface calibration</a></li>
-      <li><a href="#arbitrage">Arbitrage conditions</a></li>
-      <li><a href="#greeks">Greeks and units</a></li>
-      <li><a href="#metrics">Derived metrics</a></li>
-      <li><a href="#realized">Realized volatility</a></li>
-      <li><a href="#aggregates">Chain aggregates</a></li>
-      <li><a href="#filters">Filtering and exclusions</a></li>
-      <li><a href="#limitations">Known limitations</a></li>
-    </ol>
-  </nav>
-
-  <section class="band">
-  <h2 id="forward">1. Forward and rate extraction</h2>
+  <Heading no="4.1" id="forward">Forward and rate extraction</Heading>
   <p>
     We do not plug in a Treasury yield and a dividend estimate. Both are backed
     out of the chain, per expiry, from put–call parity:
@@ -81,7 +81,7 @@ const eq = {
     is rejected below <span class="num">0.99</span>. A poor parity fit means bad
     quotes, not an exotic forward.
   </p>
-  <div class="aside">
+  <div class="full aside">
     <h3>A precision note on the rate</h3>
     <p>
       The forward is recovered essentially exactly at every maturity. The rate is
@@ -96,9 +96,8 @@ const eq = {
     </p>
   </div>
 
-  </section>
-  <section class="band band--2">
-  <h2 id="surface">2. Surface calibration</h2>
+
+  <Heading no="4.2" id="surface">Surface calibration</Heading>
   <p>
     We work in total implied variance <span class="num">w = σ²T</span> against
     log-moneyness <span class="num">k = ln(K/F)</span>, using Gatheral's raw SVI
@@ -129,14 +128,13 @@ const eq = {
     and the mid of a wide market is systematically off.
   </p>
 
-  </section>
-  <section class="band">
-  <h2 id="arbitrage">3. Arbitrage conditions</h2>
+
+  <Heading no="4.3" id="arbitrage">Arbitrage conditions</Heading>
   <p>
     Both conditions are checked on every surface, every day, and the results,
     including the failures, are published.
   </p>
-  <h3>Butterfly (Durrleman)</h3>
+  <Heading level={3}>Butterfly, after Durrleman</Heading>
   <Fragment set:html={tex(eq.durrleman)} />
   <p>
     <span class="num">g(k) ≥ 0</span> everywhere is equivalent to the fitted
@@ -144,12 +142,12 @@ const eq = {
     grid and publish <span class="num">min g(k)</span> for every expiry, so a
     reader sees the margin rather than a boolean.
   </p>
-  <h3>Calendar</h3>
+  <Heading level={3}>Calendar</Heading>
   <Fragment set:html={tex(eq.calendar)} />
   <p>
     Total variance must not decrease with maturity at fixed log-moneyness.
   </p>
-  <div class="aside">
+  <div class="full aside">
     <h3>Where the conditions are evaluated</h3>
     <p>
       Both are checked only across the log-moneyness range where that expiry had
@@ -164,9 +162,8 @@ const eq = {
     </p>
   </div>
 
-  </section>
-  <section class="band band--2">
-  <h2 id="greeks">4. Greeks and units</h2>
+
+  <Heading no="4.4" id="greeks">Greeks and units</Heading>
   <p>
     Everything is priced on the extracted forward with Black-76, which removes
     the dividend problem entirely because dividends are already inside
@@ -197,10 +194,9 @@ const eq = {
     </tbody>
   </table>
 
-  </section>
-  <section class="band">
-  <h2 id="metrics">5. Derived metrics</h2>
-  <h3>Constant-maturity implied volatility</h3>
+
+  <Heading no="4.5" id="metrics">Derived metrics</Heading>
+  <Heading level={3}>Constant-maturity implied volatility</Heading>
   <p>
     Interpolation is in <em>total variance</em>, then converted back:
   </p>
@@ -211,7 +207,7 @@ const eq = {
     listed expiries. That is a common tell. We do not extrapolate beyond the last
     listed expiry; a target outside the quoted range returns null.
   </p>
-  <h3>Skew</h3>
+  <Heading level={3}>Skew</Heading>
   <p>
     The 25-delta risk reversal and butterfly are computed at the strikes where
     delta genuinely equals 25, solved on the fitted smile: the strike at a given
@@ -220,7 +216,7 @@ const eq = {
     skew slope is taken analytically from the fit:
   </p>
   <Fragment set:html={tex(eq.skewSlope)} />
-  <h3>Variance risk premium</h3>
+  <Heading level={3}>Variance risk premium</Heading>
   <Fragment set:html={tex(eq.vrp)} />
   <p>
     Only computable thirty days after the fact. It is published lagged and
@@ -228,9 +224,8 @@ const eq = {
     a lookahead bug wearing a metric's clothes.
   </p>
 
-  </section>
-  <section class="band band--2">
-  <h2 id="realized">6. Realized volatility</h2>
+
+  <Heading no="4.6" id="realized">Realized volatility</Heading>
   <p>
     Five estimators at 5, 10, 21, 63 and 252 trading days, annualised on 252
     days: close-to-close, Parkinson, Garman–Klass, Rogers–Satchell and
@@ -250,12 +245,11 @@ const eq = {
     intraday-range indicator and essentially nobody publishes it.
   </p>
 
-  </section>
-  <section class="band">
-  <h2 id="aggregates">7. Chain aggregates</h2>
+
+  <Heading no="4.7" id="aggregates">Chain aggregates</Heading>
   <Fragment set:html={tex(eq.gex)} />
   <p>Dollar gamma per 1% move in spot.</p>
-  <div class="aside fault-aside">
+  <div class="full block dark assumption">
     <h3>The sign convention is an assumption, not a fact</h3>
     <p>
       The common convention treats dealers as long gamma from calls and short
@@ -274,9 +268,8 @@ const eq = {
     </p>
   </div>
 
-  </section>
-  <section class="band band--2">
-  <h2 id="filters">8. Filtering and exclusions</h2>
+
+  <Heading no="4.8" id="filters">Filtering and exclusions</Heading>
   <p>Before calibration a contract is dropped if it is:</p>
   <ul>
     <li>zero-bid, or crossed (bid above ask);</li>
@@ -293,9 +286,8 @@ const eq = {
     of a chain is a different object from one fitted to all of it.
   </p>
 
-  </section>
-  <section class="band">
-  <h2 id="limitations">9. Known limitations</h2>
+
+  <Heading no="4.9" id="limitations">Known limitations</Heading>
   <ul>
     {latest?.synthetic && (
       <li>
@@ -338,44 +330,55 @@ const eq = {
     </li>
   </ul>
 
-  </section></Base>
+  </div>
+</Base>
 
 <style>
-  .toc {
-    border-top: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-    padding: 0.9rem 0;
-    margin: 2rem 0 2.5rem;
-  }
-  .toc ol {
-    columns: 2;
-    column-gap: 2.5rem;
-    margin: 0;
-    padding-left: 1.1rem;
-    font-size: 0.92rem;
-  }
-  .toc li { max-width: none; margin: 0.15rem 0; }
-  @media (max-width: 620px) { .toc ol { columns: 1; } }
-
+  /* A set-aside: a note that qualifies the section it sits in. */
   .aside {
-    border-left: 2px solid var(--rule);
-    padding: 0.2rem 0 0.2rem 1.15rem;
-    margin: 1.8rem 0;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 2.2rem 12.5% 2.4rem;
+    margin-block: 2.4rem;
   }
-  .aside h3 { margin-top: 0; font-size: 0.98rem; }
-  .fault-aside { border-left-color: var(--fault); }
-  .fault-aside h3 { color: var(--fault); }
+  .aside h3 {
+    font-size: var(--read);
+    line-height: 1.25;
+    margin: 0 0 1rem;
+  }
+  .aside p {
+    font-size: 1.086rem;
+    line-height: 1.5;
+    margin: 0;
+  }
 
-  .units { margin: 1.4rem 0; max-width: var(--measure); }
+  /* The assumption the whole gamma figure rests on, set where it cannot be
+     skimmed past. */
+  .assumption h3 {
+    font-size: var(--read);
+    line-height: 1.25;
+    color: var(--accent);
+    margin: 0 0 1.2rem;
+  }
+  .assumption p {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    line-height: 1.45;
+    margin: 0 0 1em;
+  }
+  .assumption p:last-child { margin-bottom: 0; }
+
+  .units { margin-block: 1.4rem 2rem; }
   .units caption {
     text-align: left;
     color: var(--type-muted);
-    font-size: 0.85rem;
-    padding-bottom: 0.5rem;
+    font-size: var(--label);
+    padding-bottom: 0.6rem;
   }
 
+  /* Set to sit with prose at reading size rather than at body size. */
   :global(.katex-display) {
-    margin: 1.4rem 0;
+    font-size: 1.2rem;
+    margin: 1.6rem 0;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0.2rem 0;

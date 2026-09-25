@@ -1,42 +1,61 @@
 ---
 /**
- * Base layout: palette, type, chrome.
+ * Base layout: the frame every page sits in.
  *
- * The palette is grounded in the subject rather than chosen. Observatories
- * light their floors amber and red so astronomers keep dark adaptation, which
- * is the literal reason the accent here is amber on a blue-shifted night
- * ground. The accent itself is sampled from the magma ramp used for the
- * volatility surface, so the interactive colour is the data colormap rather
- * than a brand decision.
+ * Set the way a research firm sets its site rather than the way a product
+ * sets a dashboard. Navigation is a quiet tree down the right-hand side, not a
+ * bar across the top: it lists the pages, opens the current one to show its
+ * sections, and follows the reader down the page. The name runs up the left
+ * edge. Everything between is a report: numbered sections, large plain prose
+ * on a white page, and colour used in whole blocks rather than sprinkled.
+ *
+ * Two grounds. White for pages that are read, charcoal for the front door and
+ * the library. A charcoal block can also sit inside a white page, which is how
+ * the interactive figures are framed: they were drawn for a dark ground and
+ * are shown on one.
+ *
+ * Ultra Violet does the work a corporate blue would. It reads at 7.3:1 on
+ * white, so on the white pages it can carry links, the active item and whole
+ * callout blocks with white text on them. On charcoal it cannot, at 2.1:1, so
+ * there the accent is the same hue lifted.
  */
+interface SectionLink { id?: string; href?: string; label: string }
 interface Props {
   title: string;
   description?: string;
-  wide?: boolean;
-  /** The masthead floats over the first screen instead of sitting above it,
-   *  so a full-bleed hero is the first thing on the page rather than the
-   *  second. For the homepage. */
-  overlay?: boolean;
+  /** The page ground. */
+  theme?: 'light' | 'dark';
+  /** Sections of this page, listed under its entry in the navigation. */
+  sections?: SectionLink[];
+  /** The first screen runs edge to edge, under the navigation. Homepage. */
+  bleed?: boolean;
 }
-const { title, description, wide = false, overlay = false } = Astro.props;
+const {
+  title,
+  description,
+  theme = 'light',
+  sections = [],
+  bleed = false,
+} = Astro.props;
 import Mark from '../components/Mark.astro';
-const path = Astro.url.pathname;
-const canonical = new URL(path, Astro.site ?? 'https://pitfieldstresearch.com').href;
 
-const nav = [
-  { href: '/', label: 'Today' },
-  { href: '/vol/SPY/', label: 'Surface' },
-  { href: '/quality/', label: 'Quality' },
-  { href: '/methodology/', label: 'Methodology' },
-  { href: '/about/', label: 'About' },
+const path = Astro.url.pathname;
+const site = Astro.site ?? new URL('https://pitfieldstresearch.com');
+const canonical = new URL(path, site).href;
+
+// Numbered as the sections of a report are, and the numbers are the ones each
+// page carries on its own title.
+const primary = [
+  { href: '/', label: 'Today', no: '1' },
+  { href: '/vol/SPY/', label: 'Surface', no: '2' },
+  { href: '/quality/', label: 'Quality', no: '3' },
+  { href: '/methodology/', label: 'Methodology', no: '4' },
+  { href: '/about/', label: 'About', no: '5' },
 ];
-// Behind the divider, and deliberately. The studies are real work, but they
-// are not market data, and a visitor whose first impression is astrology stops
-// reading the volatility archive as serious. The moon sits inside the studies
-// rather than beside them: it is one hypothesis family among thirty and the
-// best known rather than the most important, which is why it was never a
-// sensible parent for eclipses, Kp, sunspots and the calendar controls.
-const curiosities = [
+// Behind a gap, and unnumbered. The studies are real work but they are not
+// market data, and a visitor whose first impression is astrology stops reading
+// the volatility archive as serious.
+const secondary = [
   { href: '/studies/', label: 'Studies' },
   { href: '/reading/', label: 'Reading' },
 ];
@@ -45,7 +64,7 @@ const isActive = (href: string) =>
   href === '/' ? path === '/' : path.startsWith(href);
 ---
 
-<html lang="en">
+<html lang="en" class={`theme-${theme}`}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -61,159 +80,149 @@ const isActive = (href: string) =>
     <meta property="og:title" content={`${title} · Pitfield St`} />
     {description && <meta property="og:description" content={description} />}
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={new URL('/og.png', Astro.site ?? 'https://pitfieldstresearch.com').href} />
+    <meta property="og:image" content={new URL('/og.png', site).href} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Pitfield St, a public archive of computed options-derived volatility data" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content={new URL('/og.png', Astro.site ?? 'https://pitfieldstresearch.com').href} />
+    <meta name="twitter:image" content={new URL('/og.png', site).href} />
     <meta name="twitter:title" content={`${title} · Pitfield St`} />
     {description && <meta name="twitter:description" content={description} />}
 
-    <meta name="theme-color" content="#0b1017" />
+    <meta name="theme-color" content={theme === 'dark' ? '#252525' : '#ffffff'} />
     <meta name="author" content="Pitfield St" />
     {/* Scholarly indexers read these; the archive is meant to be citable. */}
     <meta name="citation_title" content={`${title} · Pitfield St`} />
     <meta name="citation_public_url" content={canonical} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    {/* Figtree for everything that is read, Source Serif for the few things
+        that are quoted or called out, and a mono only for code. */}
     <link
-      href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&family=Spectral:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&family=IBM+Plex+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
+    <noscript><style>.rail-nav { display: block !important; }</style></noscript>
   </head>
-  <body>
+  <body class={bleed ? 'is-bleed' : ''}>
     <a class="skip" href="#main">Skip to content</a>
 
-    <header class={overlay ? "masthead masthead--overlay" : "masthead"}>
-      <a class="wordmark" href="/">
-        <Mark size={62} />
-        <span class="wordmark-text">
-          <span class="wordmark-name">Pitfield St</span>
-          <span class="wordmark-sub">Derivatives data archive</span>
-        </span>
-      </a>
-      <nav aria-label="Primary">
-        <ul>
-          {nav.map((item) => (
-            <li>
-              <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
-                {item.label}
-              </a>
-            </li>
-          ))}
-          <li class="nav-group" aria-hidden="true"></li>
-          {curiosities.map((item) => (
-            <li>
-              <a
-                class="nav-secondary"
-                href={item.href}
-                aria-current={isActive(item.href) ? 'page' : undefined}
-              >
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </header>
+    <a class="edge" href="/" aria-label="Pitfield St, home">Pitfield St</a>
 
-    <main id="main" class={[wide && 'wide', overlay && 'overlaid'].filter(Boolean).join(' ')}>
-      <slot />
-    </main>
-
-    <footer>
-      <p class="foot-lede">
-        Pitfield St publishes computed derivatives data and the code that
-        produced it. It is not investment advice, and it makes no claim of
-        predictive value.
-      </p>
-
-      <div class="foot-grid">
-        <section>
-          <h3>Source</h3>
-          <p>
-            Every number here is reproducible from the code and the public
-            inputs below. <a href="https://github.com/Rafaeoch/pitfield-st">The
-            repository</a> holds the pipeline, the test suite and the frozen
-            pre-registration.
-          </p>
-        </section>
-
-        <section>
-          <h3>Public inputs</h3>
-          <p>
-            Index history and the Treasury curve from
-            <a href="https://fred.stlouisfed.org/">FRED</a>, geomagnetic Kp from
-            <a href="https://kp.gfz-potsdam.de/">GFZ Potsdam</a>, sunspot numbers
-            from <a href="https://www.sidc.be/SILSO/">SILSO, Royal Observatory of
-            Belgium</a>, planetary and lunar positions from
-            <a href="https://naif.jpl.nasa.gov/naif/">JPL DE440s</a>, literature
-            from <a href="https://openalex.org/">OpenAlex</a>. Options chains are
-            licensed and are never redistributed; only values derived from them
-            are published.
-          </p>
-        </section>
-
-        <section>
-          <h3>Citing this archive</h3>
-          <p>
-            Cite the dated record rather than the site, since the archive grows
-            and is never overwritten:<br />
-            <code>Pitfield St, <em>&lt;page&gt;</em>, retrieved
-            &lt;date&gt;, pitfieldstresearch.com</code>
-          </p>
-        </section>
+    <aside class="rail">
+      <div class="rail-top">
+        <a class="rail-mark" href="/" aria-label="Pitfield St, home">
+          <Mark size={40} />
+        </a>
+        <button class="rail-toggle" type="button" aria-expanded="false" aria-controls="rail-nav">
+          Menu
+        </button>
       </div>
 
-      <p class="foot-fine">
-        Code released under the MIT licence. Published figures may be reused
-        with attribution. Nothing here is an offer, a solicitation, or a
-        recommendation to trade.
-      </p>
-    </footer>
+      <nav class="rail-nav" id="rail-nav" aria-label="Primary">
+        <ul class="tree">
+          {primary.map((item) => {
+            const active = isActive(item.href);
+            const open = active && sections.length > 0;
+            return (
+              <li class={item.href === '/' ? 'leaf' : 'branch'} data-open={open ? 'true' : undefined}>
+                <a href={item.href} aria-current={active ? 'page' : undefined}>{item.label}</a>
+                {open && (
+                  <ul class="twigs">
+                    {sections.map((s) => (
+                      <li><a href={s.href ?? `#${s.id}`} data-spy={s.id}>{s.label}</a></li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        <ul class="tree tree--secondary">
+          {secondary.map((item) => {
+            const active = isActive(item.href);
+            const open = active && sections.length > 0;
+            return (
+              <li class="leaf" data-open={open ? 'true' : undefined}>
+                <a href={item.href} aria-current={active ? 'page' : undefined}>{item.label}</a>
+                {open && (
+                  <ul class="twigs">
+                    {sections.map((s) => (
+                      <li><a href={s.href ?? `#${s.id}`} data-spy={s.id}>{s.label}</a></li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        <p class="rail-util">
+          <a href="https://github.com/Rafaeoch/pitfield-st">Source code</a>
+          <a href="/data/index.json">Data index</a>
+        </p>
+      </nav>
+    </aside>
+
+    <main id="main">
+      <slot />
+
+      <footer class="foot">
+        <div class="foot-cols">
+          <section>
+            <h2>Source</h2>
+            <p>
+              Every number here is reproducible from the code and the public
+              inputs. <a href="https://github.com/Rafaeoch/pitfield-st">The
+              repository</a> holds the pipeline, the test suite and the frozen
+              pre-registration.
+            </p>
+          </section>
+          <section>
+            <h2>Public inputs</h2>
+            <p>
+              Index history and the Treasury curve from
+              <a href="https://fred.stlouisfed.org/">FRED</a>, geomagnetic Kp
+              from <a href="https://kp.gfz-potsdam.de/">GFZ Potsdam</a>, sunspots
+              from <a href="https://www.sidc.be/SILSO/">SILSO</a>, ephemerides
+              from <a href="https://naif.jpl.nasa.gov/naif/">JPL DE440s</a>,
+              literature from <a href="https://openalex.org/">OpenAlex</a>.
+              Options chains are licensed and never redistributed; only values
+              derived from them are published.
+            </p>
+          </section>
+          <section>
+            <h2>Citing this archive</h2>
+            <p>
+              Cite the dated record rather than the site, since the archive
+              grows and is never overwritten:
+              <code>Pitfield St, &lt;page&gt;, retrieved &lt;date&gt;,
+              pitfieldstresearch.com</code>
+            </p>
+          </section>
+        </div>
+        <p class="foot-fine">
+          Code released under the MIT licence. Published figures may be reused
+          with attribution. Not investment advice, and no claim of predictive
+          value. Nothing here is an offer, a solicitation, or a recommendation
+          to trade.
+        </p>
+      </footer>
+    </main>
 
     <style is:global>
       :root {
-        --void: #0b1017;
-        --panel: #141c26;
-        --rule: #26313d;
-        --type: #e6e3db;
-        --type-muted: #8a96a3;
-        /* Ultra Violet and its family. Pantone spot colours have no exact
-           sRGB equivalent, so these are the standard approximations.
+        --charcoal: #252525;
+        --paper: #ffffff;
+        /* The backdrop grey of a secondary page, and the fill of a set-aside
+           box: black at 8% over white. */
+        --mist: #ebebeb;
 
-           Ultra Violet itself is 18-3838 #5F4B8B. It carries the identity but
-           cannot carry text: against this ground it measures 2.60:1, which
-           fails even the relaxed 3:1 threshold for large text and UI. So the
-           accent is the same hue at 259 degrees lightened until it clears
-           4.5:1, and Ultra Violet is kept for the mark and for fills where
-           nothing has to be read off it. */
-        /* Two grounds, so a long page reads as blocks rather than one unbroken
-           scroll: near-black, and a neutral dark grey. A step of 1.24 in
-           relative luminance -- clearly visible as a change of block, with body
-           text still above 12:1 on both.
-
-           Not lighter than this. #252A32 separates more but drags the accent to
-           3.9:1, under the 4.5 needed for body-sized text, and links sit on
-           these grounds. */
-        --ground-1: #0b1017;
-        --ground-2: #1E2228;
-        /* The grid gets its own colour rather than borrowing --rule. A border
-           wants to be nearly invisible; the column grid is meant to be seen.
-           Drawn through --rule at 0.55 it rendered at 1.19 contrast on black
-           and 1.10 on the grey band, which is to say not at all. This is 3.26
-           against black, at full opacity. It is only ever drawn on the black
-           ground now, so there is no second contrast to balance against. */
-        --grid: #67768A;
-        /* The same grid, brighter, revealed only within a radius of the
-           pointer. It sits above --grid rather than replacing it, so the
-           structure is always there and the cursor lights part of it. */
-        --grid-hot: #9AA7B8;
-
-        --violet: #5F4B8B;          /* Ultra Violet 18-3838, the anchor */
-        --accent: #8E7AB8;          /* same hue, legible: 5.11:1 */
-        --accent-bright: #B8ACD2;   /* 8.97:1, for emphasis on dark panels */
+        /* Pantone Ultra Violet and its family. Spot colours have no exact sRGB
+           equivalent; these are the standard approximations. */
+        --violet: #5F4B8B;          /* Ultra Violet 18-3838: 7.3:1 on white */
+        --violet-lift: #B8ACD2;     /* the same hue, 7.2:1 on charcoal */
         --grape: #8B4A8B;           /* Sparkling Grape 19-3336 */
         --mulberry: #A96FA5;        /* Mulberry 17-3014 */
         --jacaranda: #7D8BC7;       /* Jacaranda 17-3930 */
@@ -222,50 +231,56 @@ const isActive = (href: string) =>
         --chateau: #D9738F;         /* Chateau Rose 17-2120 */
         --prism: #F0A6CE;           /* Prism Pink 14-2311 */
 
-        /* Kept so nothing that still asks for the old token breaks; it now
-           resolves to the accent rather than to amber. */
-        --amber: var(--accent);
-        --fault: #c4553d;
-
-        --measure: 66ch;
-        --serif: 'Literata', Georgia, 'Times New Roman', serif;
-        --display: 'Spectral', Georgia, serif;
+        --sans: 'Figtree', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
         --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-        /* A modular scale rather than ad-hoc sizes. Everything on the site
-           lands on one of these, which is most of what separates a considered
-           page from an assembled one. */
-        --step--1: 0.855rem;
-        /* The scale was cautious: section headings topped out near 23px where
-           the sites this is measured against set theirs at 64. The confidence
-           of those pages is mostly type size, and the jumps between steps
-           matter as much as the sizes -- a scale that climbs gently reads as
-           documentation however well it is set. */
-        --step-0: 1rem;
-        --step-1: 1.18rem;
-        --step-2: clamp(1.7rem, 3.2vw, 2.9rem);
-        --step-3: clamp(2.1rem, 4.2vw, 3.4rem);
-        /* Page titles. The existing scale topped out at a size that reads as a
-           section heading, which is why every interior page opened quietly. */
-        --step-4: clamp(2.6rem, 6.4vw, 5.2rem);
+        --rail: 220px;
+        --gutter: 60px;
+        /* Prose. Large, as a report is set when it expects to be read rather
+           than skimmed; the line is kept short enough to carry it. */
+        --read: clamp(1.19rem, 0.6rem + 1.25vw, 1.516rem);
+        --read-lh: 1.25;
+        --label: 0.875rem;
       }
 
-      * { box-sizing: border-box; }
+      /* Each ground publishes the same names, so anything set in them follows
+         whichever ground it lands on, including a dark block inside a white
+         page. Declared on the ground itself rather than on :root, because a
+         custom property that refers to another is resolved where it is
+         declared: set once at the root, a block could never override it. */
+      .theme-light, .light {
+        --ground: var(--paper);
+        --type: #252525;
+        --type-muted: #6b6b6b;      /* 5.3:1; the reference greys fail AA */
+        --rule: #d2d2d2;
+        --panel: #f2f2f2;
+        --accent: var(--violet);
+        --fault: #b3412a;           /* 5.7:1 */
+      }
+      .theme-dark, .dark {
+        --ground: var(--charcoal);
+        --type: #ffffff;
+        --type-muted: #a8a8a8;      /* 6.5:1 */
+        --rule: #4a4a4a;
+        --panel: #2e2e2e;
+        --accent: var(--violet-lift);
+        --fault: #e07a5f;           /* 5.2:1 */
+      }
+      .dark, .light { color: var(--type); background: var(--ground); }
 
-      html { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html { background: var(--ground); color-scheme: light; }
+      html.theme-dark { color-scheme: dark; }
 
       body {
         margin: 0;
-        /* A single, very slight vertical lift behind the page. Enough to stop
-           the ground reading as flat black; not enough to notice as a
-           gradient. */
-        background:
-          radial-gradient(120% 70% at 50% 0%, #0e141d 0%, var(--void) 58%)
-          no-repeat var(--void);
+        background: var(--ground);
         color: var(--type);
-        font-family: var(--serif);
-        font-size: 17px;
-        line-height: 1.65;
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.45;
+        font-weight: 400;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
       }
@@ -274,462 +289,469 @@ const isActive = (href: string) =>
         position: absolute;
         left: -9999px;
         top: 0;
-        background: var(--amber);
-        color: var(--void);
+        background: var(--accent);
+        color: var(--paper);
         padding: 0.6rem 1rem;
         z-index: 100;
       }
       .skip:focus { left: 0; }
 
-      /* Focus must be visible everywhere. Accessibility is an acceptance
-         criterion, not a finishing touch. */
       a:focus-visible,
       button:focus-visible,
+      summary:focus-visible,
       [tabindex]:focus-visible {
-        outline: 2px solid var(--amber);
+        outline: 2px solid var(--accent);
         outline-offset: 2px;
       }
 
-      .masthead {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.2rem 2.5rem;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1.5rem clamp(1rem, 4vw, 3rem);
-        border-bottom: 1px solid var(--rule);
-      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
 
-      .wordmark {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
+      /* ---- the left edge -------------------------------------------------
+         The name, turned up the margin and fixed there. It is the only place
+         the name is set in type, so it is set in the serif. */
+      .edge {
+        position: fixed;
+        z-index: 30;
+        left: 16px;
+        top: 50%;
+        /* Read bottom to top. Shifted half its own length first, so it is
+           centred on the screen whatever its length. */
+        transform-origin: 0 0;
+        transform: rotate(-90deg) translateX(-50%);
+        font-family: var(--serif);
+        font-size: 15px;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        color: var(--type);
         text-decoration: none;
+      }
+      .edge:hover { text-decoration: none; color: var(--accent); }
+
+      /* ---- the rail --------------------------------------------------------
+         A tree down the right-hand side. Pages are listed at reading size;
+         the current page opens to list its sections at label size, and the
+         section being read is picked out as the reader scrolls. */
+      .rail {
+        position: fixed;
+        z-index: 30;
+        top: 0;
+        right: 0;
+        width: var(--rail);
+        height: 100vh;
+        padding: 30px 20px 30px 25px;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      .rail-top { height: 71px; }
+      .rail-mark { display: inline-block; }
+      .rail-mark:hover { text-decoration: none; }
+      .rail-toggle { display: none; }
+
+      .tree { list-style: none; margin: 0; padding: 0; }
+      .tree > li { position: relative; }
+      .tree > li > a {
+        display: block;
+        font-size: 18px;
+        line-height: 26px;
         color: var(--type);
       }
-      .wordmark-text { display: block; }
-      /* Spectral for the name only. It steps back and lets the mark hold the
-         weight, where Literata's sturdiness competed with the fine dot work.
-         Body text stays Literata throughout. */
-      .wordmark-name {
-        display: block;
-        font-family: var(--display);
-        font-size: 1.16rem;
-        font-weight: 500;
-        letter-spacing: 0.004em;
-        line-height: 1.2;
+      .tree > li > a:hover { color: var(--accent); text-decoration: none; }
+      .tree > li > a[aria-current='page'] { color: var(--accent); }
+      /* A chevron for pages that have sections, turned down on the open one. */
+      .branch::before {
+        content: '';
+        position: absolute;
+        left: -15px;
+        top: 10px;
+        width: 5px;
+        height: 5px;
+        border-right: 1px solid var(--accent);
+        border-bottom: 1px solid var(--accent);
+        transform: rotate(-45deg);
+        transition: transform 180ms ease;
       }
-      .wordmark-sub {
-        display: block;
-        font-family: var(--display);
-        font-size: 0.76rem;
-        color: var(--type-muted);
-        letter-spacing: 0.028em;
-        margin-top: 0.12rem;
-      }
+      .branch[data-open]::before { transform: rotate(45deg); top: 8px; }
 
-      /* Small, widely spaced, low contrast. A navigation bar that competes
-         with the page is the clearest sign nobody edited it: the firms this
-         is measured against give theirs seven quiet words and a lot of air.
-         The tracking is what does the work, not the size. */
-      nav ul {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 2.1rem;
+      .twigs {
         list-style: none;
-        margin: 0;
+        margin: 2px 0 6px;
         padding: 0;
-        font-size: 0.76rem;
-        letter-spacing: 0.075em;
-        text-transform: uppercase;
       }
-      nav a {
+      .twigs a {
+        display: block;
+        font-size: 13px;
+        line-height: 18px;
+        padding: 1px 0;
         color: var(--type-muted);
-        text-decoration: none;
-        padding-bottom: 3px;
-        border-bottom: 1px solid transparent;
-        transition: color 160ms ease, border-color 160ms ease;
       }
-      nav a:hover { color: var(--type); }
-      nav a[aria-current='page'] {
-        color: var(--type);
-        border-bottom-color: var(--amber);
-      }
-      /* Reading sits behind a divider and reads as secondary. If a
-         visitor's first impression is astrology, the volatility work stops
-         reading as serious. */
-      .nav-group {
-        width: 1px;
-        height: 1.1em;
-        background: var(--rule);
-      }
-      .nav-secondary { font-style: italic; }
+      .twigs a:hover { color: var(--type); text-decoration: none; }
+      .twigs a[aria-current='true'] { color: var(--type); font-weight: 500; }
 
-      /* The measure the page is set on, drawn faintly behind every page. An
-         engineering-led site shows its grid; a marketing site hides it. */
+      .tree--secondary { margin-top: 26px; }
+
+      .rail-util {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 26px 0 0;
+      }
+      .rail-util a {
+        font-size: var(--label);
+        line-height: 20px;
+        color: var(--type-muted);
+      }
+      .rail-util a:hover { color: var(--type); text-decoration: none; }
+
+      /* ---- the page ------------------------------------------------------
+         Ten columns between the left margin and the rail. Prose holds the
+         middle eight; blocks, figures and callouts take all ten; section
+         numbers hang in the first. */
       main {
         position: relative;
-        max-width: 78rem;
-        margin: 0 auto;
-        padding: clamp(2.4rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem) 7rem;
+        margin-right: var(--rail);
+        padding: 101px 33px 0 var(--gutter);
+        min-height: 100vh;
       }
-      main.wide { max-width: none; padding-left: 0; padding-right: 0; }
-      main::before {
-        content: '';
+      .is-bleed main { margin-right: 0; padding: 0; }
+
+      /* The column is padding on the page rather than margins on what it
+         holds, so a component that sets its own margins cannot knock itself
+         out of the column. A full-width block steps back out: 10% of the
+         page is 12.5% of the column it sits in. */
+      .page {
+        max-width: 1100px;
+        padding: 0 10% 4rem;
+      }
+      .page > .full { margin-left: -12.5%; margin-right: -12.5%; }
+
+      /* ---- type ------------------------------------------------------------ */
+      h1, h2, h3, h4 { font-weight: 400; margin: 0; }
+
+      .sh { position: relative; }
+      .sh-no {
         position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        background-image: repeating-linear-gradient(
-          to right,
-          var(--grid) 0 1px,
-          transparent 1px calc(100% / 12)
-        );
-      }
-      main.wide::before { display: none; }
-
-      /* Overlay pages: the masthead floats on the hero, so the first screen is
-         the hero rather than a header bar, a 60px strip of padding, and then
-         the hero. A soft darkening at the top keeps the nav legible over
-         whatever the surface happens to be doing underneath it. */
-      .masthead--overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 20;
-        border-bottom: none;
-        background: linear-gradient(
-          to bottom,
-          color-mix(in srgb, var(--ground-1) 82%, transparent) 0%,
-          color-mix(in srgb, var(--ground-1) 40%, transparent) 60%,
-          transparent 100%
-        );
-      }
-      main.overlaid { padding-top: 0; }
-      /* On a phone the nav wraps to several rows and the headline sits below
-         the surface rather than over it, so floating the nav would only drop
-         three rows of links on top of the picture. It sits above instead. */
-      @media (max-width: 720px) {
-        .masthead--overlay {
-          position: static;
-          background: none;
-          border-bottom: 1px solid var(--rule);
-        }
-      }
-
-      /* The lit layer. Same lines, brighter, shown through a soft circular
-         mask that follows the pointer. Until the pointer arrives the mask sits
-         far off-screen, so nothing is lit and nothing has to be toggled. */
-      main::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        background-image: repeating-linear-gradient(
-          to right,
-          var(--grid-hot) 0 1px,
-          transparent 1px calc(100% / 12)
-        );
-        -webkit-mask-image: radial-gradient(
-          260px circle at var(--grid-x, -1000px) var(--grid-y, -1000px),
-          #000 0%,
-          rgba(0, 0, 0, 0.55) 45%,
-          transparent 72%
-        );
-        mask-image: radial-gradient(
-          260px circle at var(--grid-x, -1000px) var(--grid-y, -1000px),
-          #000 0%,
-          rgba(0, 0, 0, 0.55) 45%,
-          transparent 72%
-        );
-      }
-      main.wide::after { display: none; }
-      /* A grey band paints over both layers, so the lighting stops at its edge
-         exactly as the base grid does. */
-      @media (prefers-reduced-motion: reduce) {
-        main::after { display: none; }
-      }
-
-      main > * { position: relative; z-index: 1; }
-
-      /* Where a frame holds data, the grid turns. The vertical ruling is the
-         measure of the page and has no business crossing a table of numbers;
-         inside a frame it runs horizontally instead, along the rows, which is
-         the direction the eye already reads them in.
-
-         The opaque ground is what stops the vertical lines: they are painted
-         behind the content, so a frame that paints its own ground masks them
-         over its own area and nothing has to be cut out. */
-      .frame {
-        position: relative;
-        background: var(--frame-bg, var(--ground-1));
-        border: 1px solid var(--rule);
-      }
-      .frame::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        background-image: repeating-linear-gradient(
-          to bottom,
-          var(--grid) 0 1px,
-          transparent 1px 2.4rem
-        );
-        /* Held back inside a frame: there it sits behind numbers rather than
-           behind prose, and has to stay out of their way. */
-        opacity: 0.45;
-      }
-      .frame > * { position: relative; z-index: 1; }
-      /* A bordered table needs its columns off the edge, and the collapsed
-         border model will not let a table carry one, so it is separated. */
-      table.frame {
-        border-collapse: separate;
-        border-spacing: 0;
-      }
-      table.frame th,
-      table.frame td { padding-left: 1rem; }
-      table.frame th:last-child,
-      table.frame td:last-child { padding-right: 1rem; }
-      /* Rows already rule themselves; a second rhythm behind them is noise. */
-      table.frame::before { display: none; }
-
-      /* Full-bleed section grounds. The band spans the viewport while its
-         contents stay on the measure. */
-      .band {
-        position: relative;
-        width: 100vw;
-        margin-left: calc(50% - 50vw);
-        padding-left: calc(50vw - 39rem);
-        padding-right: calc(50vw - 39rem);
-      }
-      .band--2 { background: var(--ground-2); }
-
-      /* The grid belongs to the black ground only. A grey band is already
-         doing the work of separating itself, and ruling it too gave the page
-         two competing structures at once. The band's opaque background masks
-         the layout grid behind it; this stops any frame-level ruling as well. */
-      .band--2::before { display: none; }
-
-      /* Each band publishes its own ground so anything sitting inside it can
-         match. Without this a data frame would have to guess which band it is
-         in, and would guess wrong half the time. */
-      .band { --frame-bg: var(--ground-1); }
-      .band--2 { --frame-bg: var(--ground-2); }
-
-      /* A cut edge rather than a soft change of tone. The ground alone shifts
-         by 1.19 in luminance, which reads as a gradient on a large screen; a
-         hairline at the boundary makes it a block. */
-      .band + .band,
-      .band--2 { border-top: 1px solid var(--rule); }
-      .band--2 { border-bottom: 1px solid var(--rule); }
-      /* A band carries a ground, so it needs air inside it or the colour
-         change lands hard against the text. Applied to banded interior pages;
-         the homepage strata set their own larger rhythm. */
-      main:not(.wide) .band {
-        padding-top: clamp(2.4rem, 5vw, 4rem);
-        padding-bottom: clamp(2.4rem, 5vw, 4rem);
-      }
-      main:not(.wide) .band > h2:first-child { margin-top: 0; }
-      @media (max-width: 82rem) {
-        .band { padding-left: clamp(1rem, 4vw, 3rem); padding-right: clamp(1rem, 4vw, 3rem); }
-      }
-
-      h1, h2, h3 {
-        line-height: 1.18;
-        font-weight: 500;
-        letter-spacing: -0.014em;
-      }
-      /* Literata carries an optical-size axis. Using it is the difference
-         between a headline that was set and one that was merely scaled. */
-      /* A page opens on its title, so give it room to be one. The extra space
-         beneath is deliberate: a heading crowded against its own metadata
-         reads as a label, not a title. */
-      h1 {
-        font-size: var(--step-4, var(--step-3));
-        font-variation-settings: 'opsz' 72;
-        letter-spacing: -0.02em;
-        line-height: 1.06;
-        margin: 0 0 1.1rem;
-        text-wrap: balance;
-      }
-      /* The metadata line under a title: quiet, tracked, and separated from
-         the body by a rule rather than by guesswork. */
-      h1 + .meta {
-        padding-bottom: 1.5rem;
-        border-bottom: 1px solid var(--rule);
-        margin-bottom: 2.6rem;
-        font-size: 0.78rem;
-        letter-spacing: 0.05em;
-        color: var(--type-muted);
-      }
-      h2 {
-        font-size: var(--step-2);
-        font-variation-settings: 'opsz' 48;
-        letter-spacing: -0.022em;
-        line-height: 1.08;
-        max-width: 22ch;
-        /* Space above a heading is what separates sections; space below is
-           what glues the heading to its own text. The gap between them should
-           be lopsided, and generously so. */
-        margin: 4.6rem 0 1rem;
-      }
-      h3 { font-size: var(--step-1); margin: 2.6rem 0 0.6rem; }
-
-      /* A short amber rule above each section heading. One quiet repeated
-         gesture, doing the work that a heavier hierarchy would need. */
-      main h2::before {
-        content: '';
-        display: block;
-        width: 26px;
-        height: 1px;
-        background: var(--amber);
-        opacity: 0.55;
-        margin-bottom: 0.85rem;
-      }
-
-      p, li { max-width: var(--measure); }
-      a { color: var(--amber); text-underline-offset: 3px; }
-
-      .lede {
-        font-size: var(--step-1);
-        line-height: 1.58;
-        color: var(--type);
-      }
-      .muted { color: var(--type-muted); }
-      .small { font-size: var(--step--1); }
-
-      /* Metadata lines: hairline separators, never middle dots. */
-      .meta {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.85rem;
-        max-width: none;
-        font-size: var(--step--1);
-        color: var(--type-muted);
-      }
-      .meta .sep { width: 1px; height: 0.9em; background: var(--rule); }
-
-      /* Monospace is for aligned numeric columns, where alignment is
-         functional. Not for labels, not for metadata. */
-      .num {
-        font-family: var(--mono);
+        right: 100%;
+        margin-right: 1.9rem;
         font-variant-numeric: tabular-nums;
-        font-size: 0.9em;
+        white-space: nowrap;
+      }
+      .sh--1 {
+        font-size: clamp(1.9rem, 1.2rem + 1.6vw, 2.37rem);
+        line-height: 1.25;
+        margin-block: 0 2.2rem;
+      }
+      .sh--1 .sh-no { margin-right: 2.4rem; }
+      .sh--2 {
+        font-size: 1.086rem;
+        line-height: 1.45;
+        margin-block: 5rem 1.5rem;
+      }
+      .sh--3 {
+        font-size: clamp(1.3rem, 0.9rem + 0.9vw, 1.75rem);
+        line-height: 1.2;
+        color: var(--accent);
+        margin-block: 2.6rem 0.9rem;
       }
 
+      /* Prose is what sits directly in the page or in a block. Components
+         keep their own type: a rule reaching every paragraph on the page
+         would set a chart's legend at reading size. */
+      :is(.page, .block) > :is(p, ul > li, ol > li) {
+        font-size: var(--read);
+        line-height: var(--read-lh);
+      }
+      :is(.page, .block) > p { margin-block: 0 1.2em; }
+      /* The first paragraph under a heading is indented, as a printed report
+         sets it. Only the first: the rest are separated by space. */
+      .sh + p { text-indent: 12.5%; }
+
+      :is(.page, .block) > ul {
+        list-style: none;
+        margin-block: 0 1.4em;
+        padding: 0;
+        border-top: 1px solid var(--rule);
+      }
+      :is(.page, .block) > ul > li {
+        position: relative;
+        padding: 0.7em 0 0.7em 2.6rem;
+        border-bottom: 1px solid var(--rule);
+      }
+      :is(.page, .block) > ul > li::before {
+        content: '';
+        position: absolute;
+        left: 0.4rem;
+        top: 1.25em;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--type);
+      }
+
+      .muted { color: var(--type-muted); }
+      :is(.page, .block) > p.small, .small { font-size: 1rem; line-height: 1.5; }
+      :is(.page, .block) > p.note, .note { font-size: 1rem; line-height: 1.5; color: var(--type-muted); }
+
+      code {
+        font-family: var(--mono);
+        font-size: 0.86em;
+      }
+      .num { font-variant-numeric: tabular-nums; }
+      .nowrap { white-space: nowrap; }
+
+      /* ---- blocks ----------------------------------------------------------
+         Colour arrives in whole blocks. A callout is Ultra Violet with white
+         serif type on it; a dark block is charcoal, and frames the figures
+         that were drawn for a dark ground. */
+      .callout {
+        background: var(--violet);
+        color: #fff;
+        padding: clamp(2rem, 4vw, 3.4rem) 10%;
+        margin-top: 3rem;
+        margin-bottom: 3rem;
+      }
+      .callout p {
+        font-family: var(--serif);
+        font-size: var(--read);
+        line-height: var(--read-lh);
+        text-align: center;
+        text-indent: 0;
+        margin: 0 0 0.9em;
+      }
+      .callout p:last-child { margin-bottom: 0; }
+      .callout a { color: #fff; text-decoration: underline; text-underline-offset: 0.18em; }
+
+      .block {
+        padding: clamp(2rem, 4vw, 3.4rem) 10%;
+        margin-top: 3rem;
+        margin-bottom: 3rem;
+      }
+      .block > .sh--2:first-child { margin-top: 0; }
+      .block.dark .sh-no { color: var(--type); }
+      .serif { font-family: var(--serif); }
+
+      /* Two set-aside boxes, overlapped and stepped, for a pair of ideas that
+         belong side by side. */
+      .stagger {
+        position: relative;
+        display: grid;
+        grid-template-columns: 52% 52%;
+        margin-top: 2.6rem;
+        margin-bottom: 7rem;
+      }
+      .stagger > * {
+        background: rgba(0, 0, 0, 0.08);
+        padding: 2.6rem 3.2rem 3rem;
+      }
+      .theme-dark .stagger > *, .dark .stagger > * { background: rgba(255, 255, 255, 0.07); }
+      .stagger > :nth-child(2) { margin-left: -8%; transform: translateY(6.5rem); }
+      .stagger h3 {
+        font-size: var(--read);
+        line-height: 1.25;
+        margin: 0 0 1.1rem;
+      }
+      .stagger p {
+        font-size: 1.086rem;
+        line-height: 1.45;
+        text-indent: 2.4rem;
+        margin: 0;
+      }
+
+      /* A link set as a block, with a long rule for an arrow. */
+      .arrow-card {
+        display: block;
+        position: relative;
+        background: var(--violet);
+        color: #fff;
+        font-family: var(--serif);
+        font-size: var(--read);
+        line-height: var(--read-lh);
+        padding: 2.2rem 2.4rem 4.6rem;
+        text-decoration: none;
+      }
+      .arrow-card:hover { text-decoration: none; background: #4f3d78; }
+      .arrow-card::after {
+        content: '';
+        position: absolute;
+        left: 2.4rem;
+        right: 2.4rem;
+        bottom: 2.2rem;
+        height: 1px;
+        background: currentColor;
+        transition: right 220ms ease;
+      }
+      .arrow-card::before {
+        content: '';
+        position: absolute;
+        right: 2.4rem;
+        bottom: calc(2.2rem - 5px);
+        width: 10px;
+        height: 10px;
+        border-top: 1px solid currentColor;
+        border-right: 1px solid currentColor;
+        transform: rotate(45deg);
+        transform-origin: center;
+        transition: right 220ms ease;
+      }
+      .arrow-card:hover::after { right: 1.6rem; }
+      .arrow-card:hover::before { right: 1.6rem; }
+
+      /* Figures in a row: large, plain numbers with a label above. */
+      .figures {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+        gap: 2.2rem 2rem;
+        margin: 2.4rem 0 3rem;
+        padding: 0;
+      }
+      .figures > div { border-top: 1px solid var(--rule); padding-top: 0.9rem; }
+      .figures dt {
+        font-size: var(--label);
+        color: var(--type-muted);
+        margin-bottom: 0.5rem;
+      }
+      .figures dd {
+        margin: 0;
+        font-size: clamp(1.9rem, 1.2rem + 1.6vw, 2.37rem);
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+      }
+      .figures dd small { font-size: 1rem; color: var(--type-muted); margin-left: 0.35rem; }
+
+      /* ---- tables ---------------------------------------------------------- */
       table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.9rem;
+        font-size: 1rem;
+        font-variant-numeric: tabular-nums;
       }
-      /* Hairline rules are functional on dense almanac tables. That
-         justification does not extend to the rest of the site. */
       th, td {
         text-align: left;
-        /* Row height is what separates a table you read from one you squint
-           at. The rules stay hairline; the air does the work. */
         padding: 0.72rem 1.1rem 0.72rem 0;
         border-bottom: 1px solid var(--rule);
+        vertical-align: baseline;
       }
-      th {
-        font-weight: 500;
+      thead th {
+        font-weight: 400;
+        font-size: var(--label);
         color: var(--type-muted);
-        font-size: 0.7rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
         white-space: nowrap;
+        border-bottom-color: var(--type);
       }
-      /* A row label in a two-column readout is not a column heading and should
-         not shout like one. */
-      tbody tr > th:first-child {
-        text-transform: none;
-        letter-spacing: 0;
-        font-size: 0.88rem;
-        color: var(--type);
-      }
-      tbody tr { transition: background-color 140ms ease; }
-      tbody tr:hover { background: color-mix(in srgb, var(--panel) 55%, transparent); }
-      tbody tr:last-child th, tbody tr:last-child td { border-bottom: none; }
-      td.n, th.n {
-        text-align: right;
-        font-family: var(--mono);
-        font-variant-numeric: tabular-nums;
-        padding-right: 0;
-      }
-      th.n { font-family: var(--serif); }
+      tbody th { font-weight: 400; }
+      td.n, th.n { text-align: right; padding-right: 0; }
+      td.n + td, th.n + th { padding-left: 1.4rem; }
       .table-scroll { overflow-x: auto; }
+      .pair {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+        gap: 0 3rem;
+        align-items: start;
+        margin-bottom: 1.6rem;
+      }
 
       .fault { color: var(--fault); }
-      .ok { color: var(--amber); }
+      .ok { color: var(--accent); }
 
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--rule);
-        padding: 1.1rem 1.25rem;
-      }
-
-      /* This must be impossible to miss and must not read as an error dialog.
-         A boxed red alert says something broke. A rule with a small coloured
-         label says the page is telling you what it is. Same information,
-         different register. */
+      /* A page that is telling you what it is, rather than an error. */
       .banner {
-        border: none;
-        border-left: 2px solid var(--fault);
-        background: none;
-        padding: 0.1rem 0 0.1rem 1.15rem;
-        font-size: 0.9rem;
-        margin: 0 0 2.6rem;
-        max-width: 60rem;
+        border-left: 3px solid var(--fault);
+        padding: 0.1rem 0 0.1rem 1.4rem;
+        margin: 0 0 3rem;
       }
       .banner strong {
         display: block;
         color: var(--fault);
         font-weight: 500;
-        font-size: 0.72rem;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-        margin-bottom: 0.45rem;
+        font-size: 1rem;
+        margin-bottom: 0.4rem;
       }
-      .banner p { max-width: none; margin: 0.35rem 0 0; }
+      .banner p {
+        font-size: 1rem;
+        line-height: 1.5;
+        margin: 0.35rem 0 0;
+        text-indent: 0;
+      }
 
-      footer {
-        border-top: 1px solid var(--rule);
-        padding: 1.6rem clamp(1rem, 4vw, 3rem) 3rem;
+      .chart { margin: 1.4rem 0 0; min-height: 240px; }
+      .chart svg { max-width: 100%; height: auto; }
+      .chart figure { margin: 0; }
+
+      /* ---- footer ---------------------------------------------------------- */
+      .foot {
+        max-width: 1100px;
+        padding: 4rem 0 3rem;
+        color: var(--type-muted);
+        font-size: var(--label);
+        line-height: 20px;
       }
-      footer p { color: var(--type-muted); font-size: 0.86rem; margin: 0; }
-      .foot-lede { max-width: 62ch; }
-      .foot-grid {
+      .is-bleed .foot { padding-left: var(--gutter); padding-right: calc(var(--rail) + 33px); max-width: none; }
+      .foot-cols {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-        gap: 1.6rem 2.4rem;
-        margin: 1.8rem 0 1.4rem;
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+        gap: 1.4rem 2.6rem;
         padding-top: 1.4rem;
         border-top: 1px solid var(--rule);
       }
-      .foot-grid h3 {
-        font-size: 0.72rem;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-        color: var(--type-muted);
-        margin: 0 0 0.5rem;
-        font-weight: 500;
-      }
-      .foot-grid p { font-size: 0.82rem; line-height: 1.55; }
-      .foot-grid code {
-        font-size: 0.78rem;
-        color: var(--type);
-        background: none;
-        padding: 0;
-      }
+      .foot h2 { font-size: var(--label); color: var(--type); margin: 0 0 0.4rem; }
+      .foot p { margin: 0; }
+      .foot a { color: var(--type-muted); text-decoration: underline; text-underline-offset: 0.18em; }
+      .foot a:hover { color: var(--type); }
+      .foot code { display: block; margin-top: 0.4rem; color: var(--type); font-size: 12px; }
       .foot-fine {
-        padding-top: 1.1rem;
-        border-top: 1px solid var(--rule);
-        font-size: 0.78rem;
+        margin-top: 1.8rem !important;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      /* ---- narrow screens --------------------------------------------------
+         The rail becomes a bar across the top with the mark and a menu, the
+         name leaves the edge, and numbers stop hanging in a margin that is no
+         longer there. */
+      @media (max-width: 1000px) {
+        .edge { display: none; }
+        .rail {
+          position: sticky;
+          width: 100%;
+          height: auto;
+          padding: 14px 20px;
+          background: var(--ground);
+          border-bottom: 1px solid var(--rule);
+          overflow: visible;
+        }
+        .is-bleed .rail { position: fixed; background: transparent; border-bottom-color: transparent; }
+        .is-bleed.menu-open .rail { background: var(--ground); }
+        .rail-top {
+          height: auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .rail-mark svg { width: 78px; height: 30px; }
+        .rail-toggle {
+          display: block;
+          font: inherit;
+          font-size: 16px;
+          background: none;
+          border: 1px solid var(--rule);
+          color: var(--type);
+          padding: 0.35rem 0.9rem;
+          cursor: pointer;
+        }
+        .rail-nav { display: none; padding: 1.4rem 0 0.6rem 18px; }
+        .menu-open .rail-nav { display: block; }
+
+        main { margin-right: 0; padding: 2.4rem 20px 0; }
+        .page { padding-left: 0; padding-right: 0; }
+        .page > .full { margin-left: 0; margin-right: 0; }
+        .sh-no { position: static; margin-right: 0.7em; }
+        .sh--1 .sh-no { margin-right: 0.6em; }
+        .sh + p { text-indent: 0; }
+        .stagger { grid-template-columns: 1fr; margin-bottom: 3rem; }
+        .stagger > :nth-child(2) { margin: 0; transform: none; }
+        .callout, .block { padding-left: 1.4rem; padding-right: 1.4rem; }
+        .is-bleed .foot { padding-left: 20px; padding-right: 20px; }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -739,44 +761,50 @@ const isActive = (href: string) =>
         }
       }
     </style>
-  <script>
-    // Light the grid near the pointer. Coordinates are written as custom
-    // properties on <main> and a masked overlay does the rest, so nothing is
-    // recalculated in JavaScript per frame beyond two numbers.
-    //
-    // Coalesced into a rAF: pointermove fires far more often than the screen
-    // refreshes, and writing a custom property on every event would invalidate
-    // style more times than it could possibly paint.
-    (() => {
-      const main = document.querySelector('main');
-      if (!main || main.classList.contains('wide')) return;
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-      let x = 0, y = 0, queued = false;
-
-      const apply = () => {
-        queued = false;
-        main.style.setProperty('--grid-x', `${x}px`);
-        main.style.setProperty('--grid-y', `${y}px`);
+    <script>
+      // The menu, on narrow screens. Without JavaScript the list is simply
+      // shown (see the noscript rule in the head).
+      const toggle = document.querySelector<HTMLButtonElement>('.rail-toggle');
+      const setMenu = (open: boolean) => {
+        document.body.classList.toggle('menu-open', open);
+        toggle?.setAttribute('aria-expanded', String(open));
+        if (toggle) toggle.textContent = open ? 'Close' : 'Menu';
       };
+      toggle?.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
+      // A section link jumps within the page; the menu should not stay open
+      // over the place it jumped to.
+      for (const a of document.querySelectorAll('.rail-nav a')) {
+        a.addEventListener('click', () => setMenu(false));
+      }
 
-      main.addEventListener('pointermove', (e) => {
-        const box = main.getBoundingClientRect();
-        x = e.clientX - box.left;
-        y = e.clientY - box.top;
-        if (!queued) {
-          queued = true;
-          requestAnimationFrame(apply);
-        }
-      });
-
-      // Off the element, put the mask back out of range rather than leaving
-      // the last lit spot glowing behind the reader.
-      main.addEventListener('pointerleave', () => {
-        main.style.setProperty('--grid-x', '-1000px');
-        main.style.setProperty('--grid-y', '-1000px');
-      });
-    })();
-  </script>
+      // Pick out the section being read. The last section whose heading has
+      // passed a line a third of the way down the screen is the current one:
+      // near the top of a section its heading is visible, deep inside a long
+      // one it is not, and both should read as being in that section.
+      const links = [...document.querySelectorAll<HTMLAnchorElement>('.twigs a[data-spy]')];
+      const targets = links
+        .map((a) => document.getElementById(a.dataset.spy || ''))
+        .filter((el): el is HTMLElement => !!el);
+      if (targets.length) {
+        let queued = false;
+        const update = () => {
+          queued = false;
+          const line = window.innerHeight / 3;
+          let current: string | null = null;
+          for (const t of targets) {
+            if (t.getBoundingClientRect().top <= line) current = t.id;
+          }
+          for (const a of links) {
+            if (a.dataset.spy === current) a.setAttribute('aria-current', 'true');
+            else a.removeAttribute('aria-current');
+          }
+        };
+        addEventListener('scroll', () => {
+          if (!queued) { queued = true; requestAnimationFrame(update); }
+        }, { passive: true });
+        update();
+      }
+    </script>
   </body>
 </html>

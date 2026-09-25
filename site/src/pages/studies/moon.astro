@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import MoonGlobe from '../../components/MoonGlobe.astro';
+import Heading from '../../components/Heading.astro';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -24,28 +25,58 @@ const fmtStamp = (s: string | null | undefined) => {
 
 const phaseLabel = (m.phase_name ?? '').replace(/_/g, ' ');
 const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-US'));
+
+// The lunar results from the study, if it has been run: eight phase buckets
+// against three return horizons.
+let study: any = null;
+try {
+  study = JSON.parse(fs.readFileSync(path.resolve('public/data/study.json'), 'utf8'));
+} catch { /* the test section says it has not run */ }
+const HORIZON: Record<string, string> = { IDX_daily: 'Same day', IDX_fwd_5d: 'Next 5 days', IDX_fwd_21d: 'Next 21 days' };
+const PHASES = ['new', 'waxing_crescent', 'first_quarter', 'waxing_gibbous', 'full', 'waning_gibbous', 'last_quarter', 'waning_crescent'];
+const lunar = (study?.results ?? [])
+  .filter((r: any) => r.hypothesis === 'lunar_phase')
+  .sort((a: any, b: any) =>
+    Object.keys(HORIZON).indexOf(a.series) - Object.keys(HORIZON).indexOf(b.series) ||
+    PHASES.indexOf(a.bucket) - PHASES.indexOf(b.bucket));
+const lunarRawSig = lunar.filter((r: any) => r.p_value < 0.05).length;
+const lunarBh = lunar.filter((r: any) => (r.p_bh ?? 1) < 0.10).length;
+const lunarBonf = lunar.filter((r: any) => (r.p_bonferroni ?? 1) < 0.05).length;
+const bp = (v: number | null | undefined) =>
+  v == null || !Number.isFinite(v) ? '—' : `${v < 0 ? '−' : ''}${Math.abs(v * 10000).toFixed(1)}`;
+const pv = (v: number | null | undefined) =>
+  v == null ? '—' : v < 0.0001 ? '<0.0001' : v.toFixed(4);
+
+const sections = [
+  { href: '/studies/', label: 'All studies' },
+  { id: 'state', label: 'The Moon today' },
+  { id: 'scrubbing', label: 'Scrubbing back' },
+  { id: 'why', label: 'Why this page exists' },
+  { id: 'test', label: 'The test' },
+];
 ---
 
 <Base
   title="The Moon"
   description="The Moon rendered from real ephemeris geometry, and the pre-registered test of lunar phase against equity returns."
-  wide
+  sections={sections}
 >
-  <MoonGlobe height="60vh" />
-
   <div class="page">
-    <header class="head">
-      <h1>The Moon</h1>
-      <p class="lede">
-        Rendered from JPL DE440s. The terminator is not drawn, the light sits
-        along the true Moon-to-Sun vector and the camera along the true
-        Moon-to-Earth vector, so the phase is a consequence of the geometry
-        rather than a parameter. Libration is applied as a real rotation, which
-        is why the limb detail shifts over a month. The surface is NASA LROC
-        imagery over the LOLA elevation model.
-      </p>
-    </header>
+    <Heading level={1}>The Moon</Heading>
+    <p>
+      Rendered from JPL DE440s. The terminator is not drawn: the light sits
+      along the true Moon to Sun vector and the camera along the true Moon to
+      Earth vector, so the phase is a consequence of the geometry rather than a
+      parameter. Libration is applied as a real rotation, which is why the limb
+      detail shifts over a month. The surface is NASA LROC imagery over the
+      LOLA elevation model.
+    </p>
 
+    <div class="full block dark moon-block">
+      <MoonGlobe height="62vh" />
+    </div>
+
+    <Heading id="state">The Moon today</Heading>
     <section class="readout" aria-label="Lunar state for the selected date">
       <div><dt>Phase</dt><dd data-moon="phase">{phaseLabel || '—'}</dd></div>
       <div><dt>Illuminated</dt><dd class="num" data-moon="illuminated">{m.illuminated != null ? (m.illuminated * 100).toFixed(1) + '%' : '—'}</dd></div>
@@ -57,21 +88,21 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
       <div><dt>Next full moon</dt><dd class="num stamp">{fmtStamp(m.next_full_moon)}</dd></div>
     </section>
 
-    <p class="small muted note">
+    <p class="note">
       The six figures above follow the date slider. The next new and full moon
       timestamps do not, they are always the next ones from today, since a
       &ldquo;next full moon&rdquo; relative to a date two years ago is a fact
       about the past dressed up as a forecast.
     </p>
 
-    <p class="small muted note">
+    <p class="note">
       Distance sits at the {m.distance_percentile != null ? (m.distance_percentile * 100).toFixed(0) : '—'}th
       percentile of the perigee–apogee range (356,500–406,700 km). The next new
       and full moons are found by searching for the elongation crossing, not by
       adding 29.53 days to the last one, that accumulates error.
     </p>
 
-    <h2>Scrubbing back</h2>
+    <Heading id="scrubbing">Scrubbing back</Heading>
     <p>
       The slider under the render moves through four years of daily geometry,
       two back and two forward. Every frame is an ephemeris lookup rather than
@@ -81,7 +112,7 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
       obvious: the face is not fixed.
     </p>
 
-    <h2>Why this page exists</h2>
+    <Heading id="why">Why this page exists</Heading>
     <p>
       Lunar phase is a real, published hypothesis. Yuan and Zheng's
       <em>Are Investors Moonstruck?</em> reported lower equity returns around the
@@ -92,34 +123,72 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
     </p>
     <p>
       The rendering above is careful for the same reason the statistics below
-      will be. A page that got the astronomy wrong while claiming to test it
+      are. A page that got the astronomy wrong while claiming to test it
       rigorously would be making the opposite point to the intended one.
     </p>
 
-    <h2>The test</h2>
-    <div class="status">
-      <h3>Not yet run</h3>
+    <Heading id="test">The test</Heading>
+    {lunar.length ? (
+      <>
+        <p>
+          Returns on the {study.series.label}, <span class="nowrap">{study.series.start}</span> to
+          {' '}<span class="nowrap">{study.series.end}</span>, bucketed by the eight lunar phases and compared
+          with every other day, at three horizons. Each row is one test of the
+          {' '}{study.n_tests} the study ran, and every p-value is corrected
+          across all of them, not only across these.
+        </p>
+        <dl class="figures">
+          <div><dt>Lunar tests</dt><dd>{lunar.length}</dd></div>
+          <div><dt>p &lt; 0.05, uncorrected</dt><dd>{lunarRawSig}</dd></div>
+          <div><dt>Survive BH, q &lt; 0.10</dt><dd>{lunarBh}</dd></div>
+          <div><dt>Survive Bonferroni</dt><dd>{lunarBonf}</dd></div>
+        </dl>
+        <div class="full table-scroll">
+          <table class="lunar">
+            <thead>
+              <tr>
+                <th>Horizon</th>
+                <th>Phase</th>
+                <th class="n">Days</th>
+                <th class="n">Effect, bp</th>
+                <th class="n">95% interval, bp</th>
+                <th class="n">p</th>
+                <th class="n">p, BH</th>
+                <th class="n">MDE, bp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lunar.map((r: any, i: number) => (
+                <tr class={i > 0 && lunar[i - 1].series !== r.series ? 'group' : undefined}>
+                  <td class="muted">{HORIZON[r.series] ?? r.series}</td>
+                  <td>{r.bucket.replace(/_/g, ' ')}</td>
+                  <td class="n">{r.n_events?.toLocaleString('en-US')}</td>
+                  <td class="n">{bp(r.effect)}</td>
+                  <td class="n muted">{bp(r.ci_low)} to {bp(r.ci_high)}</td>
+                  <td class={`n ${r.p_value < 0.05 ? 'ok' : ''}`}>{pv(r.p_value)}</td>
+                  <td class="n">{pv(r.p_bh)}</td>
+                  <td class="n muted">{bp(r.mde)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="note">
+          Effect is the mean return inside the phase minus the mean outside it.
+          MDE is the smallest effect each test could have detected at 80% power
+          with the days that exist. {lunarRawSig === 0
+            ? 'No lunar test reaches 5% even before correction.'
+            : `${lunarRawSig} of ${lunar.length} reach 5% before correction, about what ${lunar.length} tests produce by chance alone, and ${lunarBonf === 0 ? 'none survives' : `${lunarBonf} survive`} correction.`}
+        </p>
+      </>
+    ) : (
       <p>
-        The harness has not been built, and until it is there is nothing
-        honest to put here. What will appear, once it runs: returns bucketed by
-        the eight lunar phases, the effect size for each bucket against its
-        complement, a bootstrap confidence interval, the raw p-value, and the
-        same value after correction across the full family of roughly thirty
-        hypotheses.
+        The study has not been run yet. Once it has, this section carries
+        returns bucketed by the eight phases, the effect for each against its
+        complement, a bootstrap interval, and the p-value before and after
+        correction across the full family.
       </p>
-      <p>
-        Beside it, the number that usually matters more, the
-        <strong>minimum detectable effect</strong> at 80% power given the
-        observations that exist. If detecting a plausible lunar effect would
-        need more market history than has ever been recorded. That is the
-        finding, and it gets stated as plainly as any rejection would.
-      </p>
-      <p class="tiny muted">
-        Inputs are already live: 14,011 daily index observations from 1971, and
-        the phase for every one of those days computed from the same ephemeris
-        driving the render above.
-      </p>
-    </div>
+    )}
 
     <p class="closing">
       If a result does appear above the corrected threshold, read
@@ -129,38 +198,24 @@ const km = (v: number) => (v == null ? '—' : Math.round(v).toLocaleString('en-
 </Base>
 
 <style>
-  .page {
-    max-width: 78rem;
-    margin: 0 auto;
-    padding: 2.4rem clamp(1rem, 4vw, 3rem) 0;
-  }
-  .head { max-width: 62ch; }
+  .moon-block { padding-top: 0; padding-left: 0; padding-right: 0; }
+  .moon-block :global(.moon-controls) { padding-left: 10%; padding-right: 10%; }
 
   .readout {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    border-top: 1px solid var(--rule);
-    margin: 2.2rem 0 0.9rem;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0 2rem;
+    margin: 0 0 1.4rem;
   }
   .readout > div {
-    padding: 0.85rem 1.2rem 0.95rem 0;
-    border-bottom: 1px solid var(--rule);
+    padding: 0.8rem 0 0.9rem;
+    border-top: 1px solid var(--rule);
   }
-  .readout dt { font-size: 0.79rem; color: var(--type-muted); margin-bottom: 0.22rem; }
-  .readout dd { margin: 0; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
-  .readout dd.stamp { font-size: 0.92rem; }
-  .note { max-width: 62ch; }
+  .readout dt { font-size: var(--label); color: var(--type-muted); margin-bottom: 0.3rem; }
+  .readout dd { margin: 0; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+  .readout dd.stamp { font-size: 1.05rem; }
 
-  .status {
-    border: 1px solid var(--rule);
-    border-left: 3px solid var(--amber);
-    background: var(--panel);
-    padding: 1.1rem 1.3rem;
-    margin: 1.2rem 0 2rem;
-  }
-  .status h3 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--amber); }
-  .status p { margin: 0 0 0.7rem; }
-  .status p:last-child { margin-bottom: 0; }
-  .tiny { font-size: 0.85rem; }
-  .closing { margin-bottom: 3rem; }
+  .lunar { margin-bottom: 1.2rem; }
+  .lunar td:nth-child(2) { text-transform: capitalize; }
+  .lunar tr.group td { border-top: 1px solid var(--type); }
 </style>

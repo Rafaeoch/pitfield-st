@@ -1,5 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
+import Heading from '../components/Heading.astro';
+import { getLatest } from '../lib/archive';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -10,279 +12,325 @@ try {
 
 const sections = lit?.sections ?? [];
 const withPapers = sections.filter((s: any) => s.papers?.length);
+
+// One colour per topic, from the lighter half of the Ultra Violet family:
+// the darker members cannot carry text on a charcoal page.
+const CHIP = ['#B8ACD2', '#7D8BC7', '#A093C0', '#D9738F', '#F0A6CE', '#A96FA5'];
+const topics = withPapers.map((s: any, i: number) => ({
+  key: s.key,
+  name: s.name,
+  why: s.why,
+  colour: CHIP[i % CHIP.length],
+  count: s.papers.length,
+}));
+const colourOf = Object.fromEntries(topics.map((t: any) => [t.key, t.colour]));
+const nameOf = Object.fromEntries(topics.map((t: any) => [t.key, t.name]));
+
+// Every paper once, in topic order, newest first within a topic.
+const entries = withPapers.flatMap((s: any) =>
+  [...s.papers]
+    .sort((a: any, b: any) => (b.year ?? 0) - (a.year ?? 0))
+    .map((p: any) => ({ ...p, topicKey: s.key }))
+);
+
+// The motif beside the title: today's thirty-day smile, set as the homepage
+// sets the whole surface, one line per strike and one point on each.
+const latest = getLatest();
+const smile = (() => {
+  const surface = latest?.surface ?? [];
+  if (!surface.length) return [];
+  let row = surface[0];
+  for (const s of surface) if (Math.abs(s.days - 30) < Math.abs(row.days - 30)) row = s;
+  const vals = (row.iv_grid ?? []) as (number | null)[];
+  const lo = Math.min(...vals.filter((v): v is number => v != null));
+  const hi = Math.max(...vals.filter((v): v is number => v != null));
+  return vals.map((v) => (v == null ? null : (v - lo) / (hi - lo || 1)));
+})();
+
+const sectionLinks = [
+  { id: 'list', label: 'The list' },
+  { id: 'notes', label: 'On the notes' },
+  { id: 'sourcing', label: 'On the sourcing' },
+];
 ---
 
 <Base
   title="Reading"
   description="The literature behind what this archive computes: volatility surfaces, variance risk premia, momentum, and the multiple-testing methodology the celestial studies rest on."
+  theme="dark"
+  sections={sectionLinks}
 >
-  <h1>Reading</h1>
-  <p class="lede">
-    Every method on this site came from somewhere. This is where, assembled
-    from OpenAlex, grouped by the part of the pipeline each body of work
-    supports, and ordered by relevance rather than by citation count.
-  </p>
-
-  {lit ? (
-    <>
-      <p class="meta">
-        <span>{lit.n_papers} papers</span>
-        <span class="sep" aria-hidden="true"></span>
-        <span>{withPapers.length} topics</span>
-        <span class="sep" aria-hidden="true"></span>
-        <span>source <a href={lit.source_url}>{lit.source}</a></span>
-      </p>
-
-      <nav class="jump" aria-label="Topics">
-        {withPapers.map((s: any) => (
-          <a href={`#${s.key}`}>{s.name}</a>
-        ))}
-      </nav>
-
-      {withPapers.map((s: any) => (
-        <section class="topic" id={s.key}>
-          <h2>{s.name}</h2>
-          <p class="why">{s.why}</p>
-          <ol class="papers">
-            {s.papers.map((p: any) => (
-              <li>
-                <details>
-                  <summary>
-                    <span class="title">{p.title}</span>
-                    <span class="byline">
-                      {p.authors?.length ? p.authors.join(', ') : 'unattributed'}
-                      {p.authors?.length >= 4 && ' et al.'}
-                      {p.year && <span class="year num">{p.year}</span>}
-                      {p.venue && <span class="venue">{p.venue}</span>}
-                    </span>
-                    <span class="marks">
-                      {p.cited_by > 0 && (
-                        <span class="num">cited {p.cited_by.toLocaleString()}</span>
-                      )}
-                      {p.open_access && <span class="oa">open access</span>}
-                      {p.note && <span class="hasnote">note</span>}
-                    </span>
-                  </summary>
-
-                  <div class="body">
-                    {p.note ? (
-                      <>
-                        <p class="note-label">
-                          Relevance to options markets
-                          <span class="generated">written from the abstract, not the paper</span>
-                        </p>
-                        <p class="note">{p.note}</p>
-                      </>
-                    ) : (
-                      <p class="note-missing">
-                        No note yet. These are generated in batch; run
-                        <span class="num"> make notes</span>.
-                      </p>
-                    )}
-
-                    {p.excerpt && (
-                      <p class="excerpt">
-                        <span class="excerpt-label">From the abstract</span>
-                        {p.excerpt}
-                      </p>
-                    )}
-
-                    {p.url && (
-                      <p class="source">
-                        <a href={p.url}>Read the paper</a>
-                        {p.doi && <span class="doi num">{p.doi.replace('https://doi.org/', 'doi:')}</span>}
-                      </p>
-                    )}
-                  </div>
-                </details>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ))}
-
-      <h2>On the notes</h2>
-      <p>
-        Each expanded entry carries a short note on how the work bears on
-        options markets. Those notes are written by Claude
-        {lit.note_model && <span class="num"> ({lit.note_model})</span>} from
-        the paper's <em>abstract</em>, not from the paper.
-      </p>
-      <p>
-        That distinction is the whole caveat. An abstract is a few hundred words
-        the authors wrote to advertise the work. A note derived from it can say
-        what the paper appears to be about and how that might bear on option
-        pricing. It cannot tell you whether the method holds up, what the data
-        actually showed, or whether the conclusion survived contact with
-        referees. Every entry links to the paper so you can go and check, and
-        the honest use of this page is as an index that tells you what to read
-        next, not as a substitute for reading it.
-      </p>
-      <p class="small muted">
-        {lit.n_notes ?? 0} of {lit.n_papers} papers carry a note. Full abstracts
-        are not republished: OpenAlex distributes them as an inverted index
-        precisely so the text is not redistributed, and the excerpt shown is for
-        identification.
-      </p>
-
-      <h2>On the sourcing</h2>
-      <p>
-        Not Google Scholar. It has no public API, its terms forbid programmatic
-        access, and it blocks automated requests within a handful of calls, a
-        page built on it would break quietly and deserve to. OpenAlex is an open
-        catalogue of some 250 million works, CC0 licensed, and built to be
-        queried.
-      </p>
-      <p>
-        Results are ordered by relevance, never by citation count. Sorting a
-        loose full-text match by citations returns the most-cited papers that
-        happen to match on any word: a query for
-        <em> implied volatility surface</em> ranked that way came back with
-        papers on plastics chemistry and polymer degradation. Relevance
-        ordering returns Gatheral.
-      </p>
-      <p class="small muted">
-        {lit.licence} Excerpts are truncated for identification; follow the link
-        for the paper itself. A work appearing under more than one topic is
-        listed under the first, which is ordered by how central it is here.
-      </p>
-    </>
-  ) : (
-    <div class="status">
-      <h2>Not yet built</h2>
-      <p>Run <span class="num">make reading</span> to assemble the list.</p>
+  <div class="page">
+    <div class="full lib-head">
+      <Heading level={1}>Reading</Heading>
+      {smile.length > 0 && (
+        <svg class="motif" viewBox={`0 0 ${smile.length * 12} 120`} preserveAspectRatio="none" aria-hidden="true">
+          {smile.map((v, i) => (
+            <g>
+              <line x1={i * 12 + 6} x2={i * 12 + 6} y1="0" y2="120" />
+              {v != null && <circle cx={i * 12 + 6} cy={104 - v * 88} r="2.6" />}
+            </g>
+          ))}
+        </svg>
+      )}
     </div>
-  )}
+
+    <p>
+      Every method on this site came from somewhere. This is where, assembled
+      from OpenAlex, grouped by the part of the pipeline each body of work
+      supports, and ordered by relevance rather than by citation count.
+    </p>
+
+    {lit ? (
+      <>
+        <Heading id="list">The list</Heading>
+        <div class="full lib-controls">
+          <div class="chips" role="group" aria-label="Filter by topic">
+            <button type="button" class="chip chip--all" aria-pressed="true" data-topic="">All</button>
+            {topics.map((t: any) => (
+              <button type="button" class="chip" aria-pressed="false" data-topic={t.key} style={`--chip:${t.colour}`}>
+                {t.name}
+              </button>
+            ))}
+          </div>
+          <p class="lib-meta">
+            <button type="button" class="expand-all" aria-pressed="false">+ Expand all</button>
+            <span>{lit.n_papers} papers</span>
+            <span>source <a href={lit.source_url}>{lit.source}</a></span>
+          </p>
+        </div>
+
+        <ol class="full entries">
+          {entries.map((p: any) => (
+            <li data-topic={p.topicKey}>
+              <details>
+                <summary>
+                  <span class="e-year">{p.year ?? ''}</span>
+                  <span class="e-tag" style={`--chip:${colourOf[p.topicKey]}`}>{nameOf[p.topicKey]}</span>
+                  <span class="e-title">{p.title}</span>
+                  <span class="e-by">{p.authors?.length ? p.authors.join(', ') : 'unattributed'}{p.authors?.length >= 4 && ' et al.'}{p.venue && <em>, {p.venue}</em>}</span>
+                  <span class="e-toggle" aria-hidden="true"></span>
+                </summary>
+                <div class="e-body">
+                  {p.note ? (
+                    <>
+                      <p class="e-label">
+                        Relevance to options markets
+                        <span>written from the abstract, not the paper</span>
+                      </p>
+                      <p class="e-note">{p.note}</p>
+                    </>
+                  ) : (
+                    <p class="e-label">No note yet.</p>
+                  )}
+                  {p.excerpt && (
+                    <p class="e-excerpt"><span>From the abstract</span>{p.excerpt}</p>
+                  )}
+                  <p class="e-links">
+                    {p.url && <a href={p.url}>Read the paper</a>}
+                    {p.cited_by > 0 && <span>cited {p.cited_by.toLocaleString('en-US')}</span>}
+                    {p.open_access && <span>open access</span>}
+                    {p.doi && <span>{p.doi.replace('https://doi.org/', 'doi:')}</span>}
+                  </p>
+                </div>
+              </details>
+            </li>
+          ))}
+        </ol>
+
+        <Heading id="notes">On the notes</Heading>
+        <p>
+          Each expanded entry carries a short note on how the work bears on
+          options markets. Those notes are written by Claude
+          {lit.note_model && <span> ({lit.note_model})</span>} from the paper's
+          <em> abstract</em>, not from the paper.
+        </p>
+        <p>
+          That distinction is the whole caveat. An abstract is a few hundred
+          words the authors wrote to advertise the work. A note derived from it
+          can say what the paper appears to be about and how that might bear on
+          option pricing. It cannot tell you whether the method holds up, what
+          the data actually showed, or whether the conclusion survived contact
+          with referees. Every entry links to the paper, and the honest use of
+          this page is as an index of what to read next, not a substitute for
+          reading it.
+        </p>
+        <p class="note">
+          {lit.n_notes ?? 0} of {lit.n_papers} papers carry a note. Full
+          abstracts are not republished: OpenAlex distributes them as an
+          inverted index precisely so the text is not redistributed, and the
+          excerpt shown is for identification.
+        </p>
+
+        <Heading id="sourcing">On the sourcing</Heading>
+        <p>
+          Not Google Scholar. It has no public API, its terms forbid
+          programmatic access, and it blocks automated requests within a
+          handful of calls; a page built on it would break quietly and deserve
+          to. OpenAlex is an open catalogue of some 250 million works, CC0
+          licensed, and built to be queried.
+        </p>
+        <p>
+          Results are ordered by relevance, never by citation count. Sorting a
+          loose full-text match by citations returns the most-cited papers that
+          happen to match on any word: a query for <em>implied volatility
+          surface</em> ranked that way came back with papers on plastics
+          chemistry and polymer degradation. Relevance ordering returns
+          Gatheral.
+        </p>
+        <p class="note">
+          {lit.licence} Excerpts are truncated for identification; follow the
+          link for the paper itself. A work appearing under more than one topic
+          is listed under the first, which is ordered by how central it is here.
+        </p>
+      </>
+    ) : (
+      <p class="note">Not yet built. Run <code>make reading</code> to assemble the list.</p>
+    )}
+  </div>
 </Base>
 
 <style>
-  .jump {
+  /* ---- the head: title, then today's smile as a row of wires ---------- */
+  .lib-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: end;
+    gap: 0 3rem;
+    padding-left: 10%;
+    margin-bottom: 3rem;
+  }
+  .lib-head :global(.sh--1) { margin: 0; white-space: nowrap; }
+  .motif { width: 100%; height: 120px; display: block; }
+  .motif line { stroke: rgba(184, 172, 210, 0.28); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .motif circle { fill: var(--violet-lift); }
+
+  /* ---- chips and controls --------------------------------------------- */
+  .lib-controls { margin-top: 0.4rem; margin-bottom: 1.6rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip {
+    font: inherit;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--chip, var(--type));
+    background: transparent;
+    color: var(--chip, var(--type));
+    cursor: pointer;
+  }
+  .chip[aria-pressed='true'] { background: var(--chip, var(--type)); color: #1a1a1a; }
+  .chip:hover { border-color: var(--type); }
+  .lib-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 1.3rem;
-    padding: 0.9rem 0;
-    margin: 1.4rem 0 0.5rem;
+    align-items: baseline;
+    gap: 0.4rem 1.8rem;
+    margin: 1.4rem 0 0;
+    font-size: var(--label);
+    color: var(--type-muted);
+  }
+  .expand-all {
+    font: inherit;
+    font-size: var(--label);
+    color: var(--type);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .expand-all:hover { color: var(--accent); }
+
+  /* ---- the list -------------------------------------------------------- */
+  .entries {
+    list-style: none;
+    margin-block: 0 4rem;
+    padding: 0;
     border-top: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-    font-size: 0.88rem;
   }
-
-  .topic { margin: 2.6rem 0 0; }
-  .why {
-    color: var(--type-muted);
-    font-size: 0.94rem;
-    margin: 0 0 1.2rem;
-  }
-
-  .papers { list-style: none; margin: 0; padding: 0; counter-reset: paper; }
-  .papers li {
-    max-width: none;
-    padding: 0.9rem 0 1rem 2.2rem;
-    border-bottom: 1px solid var(--rule);
-    position: relative;
-    counter-increment: paper;
-  }
-  .papers li::before {
-    content: counter(paper);
-    position: absolute;
-    left: 0;
-    top: 1rem;
-    font-family: var(--mono);
-    font-size: 0.76rem;
-    color: var(--type-muted);
-  }
-
-  details summary {
+  .entries li { border-bottom: 1px solid var(--rule); }
+  .entries li[hidden] { display: none; }
+  summary {
     list-style: none;
     cursor: pointer;
-    display: block;
+    display: grid;
+    grid-template-columns: 10% minmax(0, 1fr) 3rem;
+    grid-template-areas:
+      "year tag  toggle"
+      ".    title toggle"
+      ".    by   toggle";
+    padding: 1.3rem 0 1.4rem;
   }
-  details summary::-webkit-details-marker { display: none; }
-  details summary::before {
-    content: '+';
+  summary::-webkit-details-marker { display: none; }
+  .e-year { grid-area: year; font-size: var(--label); color: var(--type-muted); font-variant-numeric: tabular-nums; }
+  .e-tag {
+    grid-area: tag;
+    justify-self: start;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0.32rem 0.5rem;
+    background: var(--chip);
+    color: #1a1a1a;
+    margin-bottom: 0.8rem;
+  }
+  .e-title {
+    grid-area: title;
+    font-family: var(--serif);
+    font-size: var(--read);
+    line-height: 1.25;
+    max-width: 44rem;
+  }
+  .e-by { grid-area: by; margin-top: 0.45rem; font-size: var(--label); color: var(--type-muted); }
+  .e-toggle { grid-area: toggle; justify-self: end; position: relative; width: 16px; height: 16px; margin-top: 2px; }
+  .e-toggle::before, .e-toggle::after {
+    content: '';
     position: absolute;
-    left: 0.9rem;
-    top: 0.95rem;
-    font-family: var(--mono);
-    color: var(--type-muted);
-    font-size: 0.9rem;
+    left: 0;
+    top: 7px;
+    width: 16px;
+    height: 1px;
+    background: var(--type);
+    transition: transform 200ms ease;
   }
-  details[open] summary::before { content: '−'; color: var(--amber); }
-  details summary:hover .title { color: var(--amber); }
+  .e-toggle::after { transform: rotate(90deg); }
+  details[open] .e-toggle::after { transform: rotate(0deg); }
+  summary:hover .e-title { color: var(--accent); }
 
-  .title {
-    display: block;
-    font-size: 1rem;
-    line-height: 1.35;
-    max-width: 70ch;
-  }
-  .byline {
-    display: block;
-    margin: 0.25rem 0 0;
-    font-size: 0.85rem;
-    color: var(--type-muted);
-  }
+  .e-body { padding: 0 3rem 1.8rem 10%; }
+  .e-body p { margin: 0 0 0.9rem; max-width: 46rem; }
+  .e-label { font-size: var(--label); color: var(--accent); }
+  .e-label span { color: var(--type-muted); margin-left: 0.8rem; font-style: italic; }
+  .e-note { font-size: 1.086rem; line-height: 1.5; }
+  .e-excerpt { font-size: 1rem; line-height: 1.5; color: var(--type-muted); }
+  .e-excerpt span { display: block; font-size: var(--label); margin-bottom: 0.2rem; }
+  .e-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; font-size: var(--label); color: var(--type-muted); }
 
-  .body {
-    margin: 0.9rem 0 0.2rem;
-    padding-left: 0.9rem;
-    border-left: 2px solid var(--rule);
+  @media (max-width: 1000px) {
+    .lib-head { grid-template-columns: 1fr; padding-left: 0; }
+    .motif { height: 70px; margin-top: 1rem; }
+    summary { grid-template-columns: 4rem minmax(0, 1fr) 2rem; }
+    .e-body { padding-left: 4rem; padding-right: 0; }
   }
-  .note-label {
-    margin: 0 0 0.3rem;
-    font-size: 0.8rem;
-    color: var(--amber);
-    max-width: none;
-  }
-  .note-label .generated {
-    color: var(--type-muted);
-    font-style: italic;
-    margin-left: 0.6rem;
-  }
-  .note { margin: 0 0 0.9rem; font-size: 0.94rem; max-width: 74ch; }
-  .note-missing {
-    margin: 0 0 0.9rem;
-    font-size: 0.88rem;
-    color: var(--type-muted);
-    max-width: none;
-  }
-  .excerpt-label {
-    display: block;
-    font-size: 0.78rem;
-    color: var(--type-muted);
-    margin-bottom: 0.2rem;
-  }
-  .source { margin: 0.9rem 0 0; max-width: none; font-size: 0.9rem; }
-  .source .doi { margin-left: 0.9rem; color: var(--type-muted); font-size: 0.8rem; }
-  .marks .hasnote { color: var(--amber); }
-  .byline .year .byline .venue { margin-left: 0.8rem; }
-  .byline .venue { font-style: italic; }
-
-  .excerpt {
-    margin: 0.5rem 0 0;
-    font-size: 0.88rem;
-    color: var(--type-muted);
-    max-width: 78ch;
-    line-height: 1.55;
-  }
-
-  .marks {
-    display: flex;
-    margin: 0.45rem 0 0;
-    display: flex;
-    gap: 1rem;
-    font-size: 0.78rem;
-    color: var(--type-muted);
-    max-width: none;
-  }
-  .marks .oa { color: var(--amber); }
-
-  .status {
-    border: 1px solid var(--rule);
-    border-left: 3px solid var(--amber);
-    background: var(--panel);
-    padding: 1.1rem 1.3rem;
-    margin: 1.6rem 0;
-  }
-  .status h2 { margin: 0 0 0.4rem; font-size: 1rem; color: var(--amber); }
 </style>
+
+<script>
+  // Filter by topic, and open or close the whole list. Without JavaScript
+  // every entry is listed and each opens on its own.
+  const chips = [...document.querySelectorAll<HTMLButtonElement>('.chip')];
+  const rows = [...document.querySelectorAll<HTMLLIElement>('.entries > li')];
+  const expand = document.querySelector<HTMLButtonElement>('.expand-all');
+
+  for (const chip of chips) {
+    chip.addEventListener('click', () => {
+      const topic = chip.dataset.topic || '';
+      for (const c of chips) c.setAttribute('aria-pressed', String(c === chip));
+      for (const r of rows) r.hidden = !!topic && r.dataset.topic !== topic;
+    });
+  }
+
+  expand?.addEventListener('click', () => {
+    const open = expand.getAttribute('aria-pressed') !== 'true';
+    expand.setAttribute('aria-pressed', String(open));
+    expand.textContent = open ? '− Collapse all' : '+ Expand all';
+    for (const d of document.querySelectorAll<HTMLDetailsElement>('.entries details')) d.open = open;
+  });
+</script>

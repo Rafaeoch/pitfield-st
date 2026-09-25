@@ -48,9 +48,8 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface', ambient = fa
     height: var(--surface-height);
     min-height: 320px;
     width: 100%;
-    background: linear-gradient(180deg, #0d131c 0%, var(--void) 78%);
-    border-top: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
+    /* The block it sits in supplies the ground. */
+    background: transparent;
     cursor: grab;
     touch-action: none;
   }
@@ -71,14 +70,13 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface', ambient = fa
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem 1.6rem;
-    padding: 0.7rem clamp(1rem, 4vw, 3rem);
-    font-size: 0.82rem;
+    padding: 0.9rem 0 0;
+    font-size: var(--label);
     color: var(--type-muted);
   }
   .axis-key b {
-    font-family: var(--mono);
     font-weight: 500;
-    color: var(--amber);
+    color: var(--accent);
     margin-right: 0.35rem;
   }
   .hint { margin-left: auto; }

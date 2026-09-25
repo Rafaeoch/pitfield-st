@@ -1,0 +1,319 @@
+---
+/**
+ * Today's volatility surface, drawn as an abacus.
+ *
+ * Every vertical line is one strike, placed by log-moneyness. Every point on a
+ * line is one expiry's implied volatility at that strike, fitted at the last
+ * close: higher on the screen is higher volatility, on a log scale so the
+ * steep short-dated wings do not flatten everything else. Read across, the
+ * points of one expiry trace its smile; read down a line, they are the term
+ * structure at that strike. A point is missing wherever an expiry had no
+ * quotable contracts, so the ragged edge is the data support, as it is on the
+ * three-dimensional surface.
+ *
+ * It moves the way the mark does, because it is the same object. The ripple
+ * is the mark's travelling wave on the same page clock, and the colour walks
+ * the Ultra Violet family through the expiries on the shared choreography, so
+ * a colour turning through the logo turns through the surface at the same
+ * moment. The pointer pushes points along their lines, the only direction an
+ * abacus allows, and reads out the strike it is over.
+ *
+ * Still when the reader has asked for reduced motion; paused off screen.
+ */
+interface Props {
+  latest: any;
+  /** 0 to 1, how far one expiry is picked out from the rest. The page drives
+   *  it from scroll position through the element's data-focus attribute. */
+  class?: string;
+}
+const { latest, class: className = '' } = Astro.props;
+
+const kGrid: number[] = latest?.k_grid ?? [];
+const surface: any[] = latest?.surface ?? [];
+
+// Rounded hard: four significant figures of volatility is more than a pixel
+// can show, and it keeps the payload near ten kilobytes.
+const payload = {
+  k: kGrid.map((k) => +k.toFixed(4)),
+  days: surface.map((s) => s.days),
+  fwd: surface.map((s) => +(s.forward ?? 0).toFixed(2)),
+  iv: surface.map((s) =>
+    (s.iv_grid ?? []).map((v: number | null) => (v == null ? null : +v.toFixed(4)))
+  ),
+  date: latest?.date ?? null,
+  underlying: latest?.underlying ?? 'SPY',
+};
+
+const fmtDate = (iso: string | null) => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d} ${MONTHS[m - 1]} ${y}`;
+};
+---
+
+<div
+  class={`abacus ${className}`}
+  data-payload={JSON.stringify(payload)}
+  data-focus="0"
+  role="img"
+  aria-label={`The ${payload.underlying} implied volatility surface at the close of ${fmtDate(payload.date)}, drawn as points on vertical lines: one line per strike, one point per expiry.`}
+>
+  <canvas></canvas>
+  <p class="abacus-read" aria-live="polite">
+    <span class="read-default">{payload.underlying} surface, close of {fmtDate(payload.date)}</span>
+    <span class="read-live" hidden></span>
+  </p>
+</div>
+
+<style>
+  .abacus { position: absolute; inset: 0; overflow: hidden; }
+  .abacus canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .abacus-read {
+    position: absolute;
+    right: calc(var(--rail) + 33px);
+    top: 36px;
+    margin: 0;
+    font-size: var(--label);
+    line-height: 20px;
+    color: var(--type-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    pointer-events: none;
+  }
+  .abacus-read :global(.v) { color: var(--type); }
+  .abacus-read :global(.gap) { display: inline-block; width: 1.1rem; }
+  @media (max-width: 1000px) {
+    .abacus-read { display: none; }
+  }
+</style>
+
+<script>
+  import { bandProgress, clockPhase, mixRgb } from '../lib/choreography';
+
+  type Payload = {
+    k: number[]; days: number[]; fwd: number[];
+    iv: (number | null)[][]; date: string | null; underlying: string;
+  };
+
+  const LIFT = 0.2;            // toward white, so Ultra Violet shows on charcoal
+  const RISE_MS = 1500;        // one point's travel up its line
+  const STAGGER_MS = 1100;     // shortest expiry first, longest last
+  const WAVE_SPEED = 0.55;     // the mark's
+  const PUSH = 42;             // how far the pointer shoves a point, px
+  const REACH_X = 34;
+  const REACH_Y = 70;
+
+  for (const root of document.querySelectorAll<HTMLElement>('.abacus')) {
+    const canvas = root.querySelector('canvas')!;
+    const ctx = canvas.getContext('2d');
+    const data: Payload = JSON.parse(root.dataset.payload || '{}');
+    if (!ctx || !data.k?.length || !data.iv?.length) continue;
+
+    const nK = data.k.length;
+    const nE = data.iv.length;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const readDefault = root.querySelector<HTMLElement>('.read-default')!;
+    const readLive = root.querySelector<HTMLElement>('.read-live')!;
+
+    // Log scale between the extremes actually published today.
+    let lo = Infinity, hi = -Infinity;
+    for (const row of data.iv) for (const v of row) {
+      if (v == null || v <= 0) continue;
+      lo = Math.min(lo, v); hi = Math.max(hi, v);
+    }
+    const logLo = Math.log(lo), logHi = Math.log(hi);
+
+    // The expiry picked out when the page asks for one: the nearest to thirty
+    // days, since that is the maturity the headline figures are quoted at.
+    let focusRow = 0;
+    for (let e = 0; e < nE; e++) {
+      if (Math.abs(data.days[e] - 30) < Math.abs(data.days[focusRow] - 30)) focusRow = e;
+    }
+
+    // Per point: resting target, current pointer offset.
+    const offset = new Float32Array(nE * nK);
+
+    let W = 0, H = 0, dpr = 1;
+    let xs: number[] = [];
+    let top = 0, bottom = 0, radius = 3;
+
+    const layout = () => {
+      // Layout size, not the painted box: a transformed ancestor would
+      // otherwise scale the drawing twice.
+      W = root.clientWidth; H = root.clientHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // On a wide screen the lines stop short of the navigation rail, so the
+      // rail sits on plain ground; on a narrow one they run edge to edge.
+      const wide = W > 1000;
+      const left = wide ? 60 : 20;
+      const right = wide ? W - 220 - 33 : W - 20;
+      xs = data.k.map((_, i) => left + (i / (nK - 1)) * (right - left));
+      top = H * (wide ? 0.13 : 0.16);
+      bottom = H * (wide ? 0.6 : 0.56);
+      radius = Math.max(1.4, Math.min(3.4, ((right - left) / (nK - 1)) * 0.14));
+    };
+
+    const yOf = (v: number) =>
+      bottom - ((Math.log(v) - logLo) / (logHi - logLo || 1)) * (bottom - top);
+
+    const lift = (c: number) => Math.round(c + (255 - c) * LIFT);
+
+    let pointerX = -1e4, pointerY = -1e4, hot = -1;
+
+    const readout = (i: number) => {
+      if (i < 0) {
+        readLive.hidden = true;
+        readDefault.hidden = false;
+        return;
+      }
+      const k = data.k[i];
+      const vals: number[] = [];
+      for (let e = 0; e < nE; e++) {
+        const v = data.iv[e][i];
+        if (v != null) vals.push(v);
+      }
+      // Strike from the thirty-day forward: every expiry has its own forward,
+      // so a strike is only a price once one of them is chosen.
+      const strike = data.fwd[focusRow] * Math.exp(k);
+      const sign = k < 0 ? '−' : k > 0 ? '+' : '';
+      const range = vals.length
+        ? `IV <span class="v">${(Math.min(...vals) * 100).toFixed(1)}%</span> to <span class="v">${(Math.max(...vals) * 100).toFixed(1)}%</span> over ${vals.length} expiries`
+        : 'no expiry quoted here';
+      readLive.innerHTML =
+        `ln(K/F) <span class="v">${sign}${Math.abs(k).toFixed(3)}</span><span class="gap"></span>` +
+        `K <span class="v">${strike.toFixed(0)}</span><span class="gap"></span>${range}`;
+      readLive.hidden = false;
+      readDefault.hidden = true;
+    };
+
+    const draw = (now: number, elapsed: number) => {
+      ctx.clearRect(0, 0, W, H);
+      const t = reduced ? 0 : (now / 1000) * WAVE_SPEED;
+      const focus = Math.min(Math.max(parseFloat(root.dataset.focus || '0') || 0, 0), 1);
+
+      // The lines.
+      ctx.lineWidth = 1;
+      for (let i = 0; i < nK; i++) {
+        ctx.strokeStyle = i === hot ? 'rgba(214,206,232,0.55)' : 'rgba(184,172,210,0.17)';
+        ctx.beginPath();
+        ctx.moveTo(Math.round(xs[i]) + 0.5, 0);
+        ctx.lineTo(Math.round(xs[i]) + 0.5, H);
+        ctx.stroke();
+      }
+
+      const { step, w } = clockPhase(now);
+      const focusPts: [number, number][] = [];
+
+      for (let e = 0; e < nE; e++) {
+        const depth = nE > 1 ? e / (nE - 1) : 0;
+        const [r, g, b] = mixRgb(step, step + 1, bandProgress(depth, nE, step, w));
+        // Receding maturities fade, as the mark's rear curves do, so the
+        // points of neighbouring expiries can be told apart at rest.
+        const recede = 1 - 0.5 * depth;
+        const dim = e === focusRow ? Math.max(recede, focus) : recede * (1 - 0.72 * focus);
+        ctx.fillStyle = `rgba(${lift(r)},${lift(g)},${lift(b)},${dim})`;
+        ctx.beginPath();
+
+        for (let i = 0; i < nK; i++) {
+          const v = data.iv[e][i];
+          if (v == null || v <= 0) continue;
+          const x = xs[i];
+          const kk = nK > 1 ? (i / (nK - 1)) * 2 - 1 : 0;
+          const rest = yOf(v) + (reduced ? 0 : 7 * (1 - 0.28 * depth) * Math.sin(kk * 2.2 - t + depth * 2.2));
+
+          // Up the line from below the screen, shortest expiry first.
+          let y = rest;
+          if (!reduced) {
+            const delay = depth * STAGGER_MS + Math.abs(kk) * 260;
+            const p = Math.min(Math.max((elapsed - delay) / RISE_MS, 0), 1);
+            const eased = 1 - Math.pow(1 - p, 3);
+            y = H + 12 + (rest - H - 12) * eased;
+
+            // The pointer shoves points along their line, away from itself.
+            const j = e * nK + i;
+            const dx = x - pointerX, dy = y - pointerY;
+            const reach = Math.exp(-(dx * dx) / (2 * REACH_X * REACH_X) - (dy * dy) / (2 * REACH_Y * REACH_Y));
+            const target = (dy >= 0 ? 1 : -1) * PUSH * reach;
+            offset[j] += (target - offset[j]) * 0.16;
+            y += offset[j];
+          }
+
+          ctx.moveTo(x + radius, y);
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          if (e === focusRow) focusPts.push([x, y]);
+        }
+        ctx.fill();
+      }
+
+      // One expiry picked out: its points joined into the smile they trace.
+      if (focus > 0.01 && focusPts.length > 1) {
+        ctx.strokeStyle = `rgba(255,255,255,${0.85 * focus})`;
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        focusPts.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.stroke();
+        const [lx, ly] = focusPts[focusPts.length - 1];
+        ctx.fillStyle = `rgba(255,255,255,${0.9 * focus})`;
+        ctx.font = '13px Figtree, Helvetica, Arial, sans-serif';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${data.days[focusRow]}-day expiry`, lx + 12, ly);
+      }
+    };
+
+    layout();
+    const born = performance.now();
+    let raf = 0;
+    let visible = true;
+
+    const frame = (now: number) => {
+      draw(now, now - born);
+      raf = requestAnimationFrame(frame);
+    };
+    const run = () => { if (!raf && visible && !reduced) raf = requestAnimationFrame(frame); };
+    const stop = () => { if (raf) cancelAnimationFrame(raf); raf = 0; };
+
+    if (reduced) draw(0, Infinity);
+    else run();
+
+    new ResizeObserver(() => {
+      layout();
+      if (reduced) draw(0, Infinity);
+    }).observe(root);
+
+    new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      visible ? run() : stop();
+    }).observe(root);
+
+    // Listened for on the window: text is set over the canvas, and the
+    // pointer should still move points while it is over a headline.
+    if (!reduced) {
+      addEventListener('pointermove', (ev) => {
+        const box = canvas.getBoundingClientRect();
+        const x = ev.clientX - box.left, y = ev.clientY - box.top;
+        if (x < 0 || y < 0 || x > box.width || y > box.height) {
+          pointerX = pointerY = -1e4;
+          if (hot !== -1) { hot = -1; readout(-1); }
+          return;
+        }
+        pointerX = x; pointerY = y;
+        const spacing = xs.length > 1 ? xs[1] - xs[0] : 0;
+        let near = -1;
+        for (let i = 0; i < xs.length; i++) {
+          if (Math.abs(xs[i] - x) <= spacing / 2) { near = i; break; }
+        }
+        if (near !== hot) { hot = near; readout(near); }
+      }, { passive: true });
+      document.addEventListener('pointerleave', () => {
+        pointerX = pointerY = -1e4;
+        hot = -1;
+        readout(-1);
+      });
+    }
+  }
+</script>

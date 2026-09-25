@@ -155,12 +155,13 @@ const lines = Array.from({ length: N }, (_, i) => {
 
     let raf = 0;
     let visible = true;
-    const start = performance.now();
 
     const tick = (now: number) => {
       // Slow. A logo that moves quickly is a distraction; this should read as
-      // a tide rather than an animation.
-      const t = ((now - start) / 1000) * 0.55;
+      // a tide rather than an animation. On the page clock rather than time
+      // since the mark started, so its ripple stays in phase with the
+      // homepage surface, which runs the same wave.
+      const t = (now / 1000) * 0.55;
       // The page clock, not time since this mark started: that is what keeps
       // it in step with the surface, which mounts later.
       const { step, w } = clockPhase(now);

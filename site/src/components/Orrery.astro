@@ -126,7 +126,7 @@
     margin: 1.4rem 0 0.8rem;
   }
   .scrub { flex: 1 1 320px; }
-  .scrub input { width: 100%; accent-color: var(--amber); }
+  .scrub input { width: 100%; accent-color: var(--accent); }
   .buttons { display: flex; gap: 0.7rem; align-items: end; }
   button {
     font: inherit;
@@ -137,8 +137,8 @@
     padding: 0.36rem 0.85rem;
     cursor: pointer;
   }
-  button:hover { border-color: var(--amber); color: var(--amber); }
-  button[aria-pressed='true'] { border-color: var(--amber); color: var(--amber); }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
   select {
     font: inherit;
     font-size: 0.86rem;
@@ -362,7 +362,7 @@
             const tight = 1 - Math.abs(sep - exact) / orb;
             const chord = mk('line', {
               x1, y1, x2, y2,
-              stroke: name === 'square' || name === 'opposition' ? 'var(--fault)' : 'var(--amber)',
+              stroke: name === 'square' || name === 'opposition' ? 'var(--fault)' : 'var(--accent)',
               'stroke-width': (0.5 + tight * 1.5).toFixed(2),
               'stroke-opacity': (0.2 + tight * 0.55).toFixed(2),
             });
@@ -391,13 +391,13 @@
 
         const disc = mk('circle', {
           cx: x, cy: y, r: 11,
-          fill: retro[body] ? 'transparent' : 'var(--void)',
+          fill: retro[body] ? 'transparent' : 'var(--ground)',
           stroke: retro[body] ? 'var(--fault)' : 'var(--rule)',
         });
         const t = mk('text', {
           x, y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
           'font-size': 14,
-          fill: retro[body] ? 'var(--fault)' : 'var(--amber)',
+          fill: retro[body] ? 'var(--fault)' : 'var(--accent)',
         });
         t.textContent = GLYPH[body];
         if (intro) {

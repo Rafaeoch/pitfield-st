@@ -1,0 +1,26 @@
+---
+/**
+ * A numbered section heading, set the way a report is: the number hangs in
+ * the margin and the title holds the text column, so every heading on a page
+ * starts at the same edge as the prose beneath it and the numbers read down the
+ * margin as a table of contents.
+ *
+ * Level 1 is the page title and carries the page's number from the navigation
+ * ("2"). Level 2 is a subsection ("2.1"): small, set at the size of a label,
+ * because on these pages the prose is large and the heading only has to name
+ * what follows, not compete with it.
+ */
+interface Props {
+  no?: string;
+  level?: 1 | 2 | 3;
+  id?: string;
+  class?: string;
+}
+const { no, level = 2, id, class: className = '' } = Astro.props;
+const Tag = (`h${level}`) as 'h1' | 'h2' | 'h3';
+---
+
+<Tag class={`sh sh--${level} ${className}`} id={id}>
+  {no && <span class="sh-no">{no}</span>}
+  <span class="sh-title"><slot /></span>
+</Tag>

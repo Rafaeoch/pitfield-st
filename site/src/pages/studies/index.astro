@@ -2,6 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import Orrery from '../../components/Orrery.astro';
 import Leaderboard from '../../components/Leaderboard.astro';
+import Heading from '../../components/Heading.astro';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -23,6 +24,7 @@ try {
 
 const tiers = [
   {
+    tier: 1,
     name: 'Tier 1: plausible causal mechanism',
     note: 'Treated seriously. These are not jokes.',
     items: [
@@ -32,6 +34,7 @@ const tiers = [
     ],
   },
   {
+    tier: 2,
     name: 'Tier 2: cyclical, no mechanism',
     note: null,
     items: [
@@ -45,6 +48,7 @@ const tiers = [
     ],
   },
   {
+    tier: 3,
     name: 'Tier 3: pure astrology',
     note: 'Saturn lives here.',
     items: [
@@ -58,6 +62,7 @@ const tiers = [
     ],
   },
   {
+    tier: 4,
     name: 'Tier 4: calendar effects, as a control group',
     note: 'The honest contrast. Some have survived scrutiny better than the celestial set, and including them shows the harness can discriminate.',
     items: [
@@ -82,33 +87,43 @@ for (const r of rows) {
   if (r.p_value < 0.05) byTier[tier].sig++;
 }
 const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
+
+const sections = [
+  { id: 'orrery', label: 'Where everything is' },
+  ...(study ? [
+    { id: 'results', label: 'What happened' },
+    { id: 'artefacts', label: 'Real, and not' },
+    { id: 'leaderboard', label: 'The leaderboard' },
+  ] : []),
+  { id: 'hypotheses', label: 'The hypothesis list' },
+  { id: 'treatment', label: 'How each is treated' },
+  { id: 'bangladesh', label: 'The Bangladesh line' },
+  { href: '/studies/moon/', label: 'The Moon' },
+];
 ---
 
 <Base
   title="Celestial studies"
   description="A pre-registered study of roughly thirty celestial and calendar hypotheses against equity returns, run through one statistical harness."
+  sections={sections}
 >
-  <h1>The celestial studies</h1>
-  <p class="lede">
+  <div class="page">
+  <Heading level={1}>Studies</Heading>
+  <p>
     A pre-registered test of roughly thirty celestial and calendar hypotheses
     against equity returns, every one of them run through the same statistical
     harness, corrected for multiple comparisons across the whole family, and
     reported including the null results, which is most of them.
   </p>
 
-  <nav class="jump" aria-label="Celestial pages">
-    <a href="/studies/moon/">The moon, rendered from real ephemeris &rarr;</a>
-  </nav>
-
-  <section class="band">
-  <h2>Where everything is, right now</h2>
+  <Heading id="orrery">Where everything is, right now</Heading>
   <p>
     Apparent geocentric positions from JPL DE440s, the same ephemeris the study
     computes its variables from. Scrub the slider to move through time and watch
     the aspect geometry form and break; bodies are drawn hollow while
     retrograde.
   </p>
-  <p class="small muted">
+  <p class="note">
     Nothing on this wheel is a claim. An aspect is two bodies at a particular
     angular separation, which is a measurable fact about the solar system.
     Whether that fact has anything to do with equity returns is precisely what
@@ -116,11 +131,13 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     does not.
   </p>
 
-  <Orrery />
+  <div class="full block dark">
+    <Orrery />
+  </div>
 
   {study ? (
     <>
-      <h2>What happened</h2>
+      <Heading id="results">What happened</Heading>
       <p>
         The harness ran over {study.series.n_sessions.toLocaleString()} sessions
         of the {study.series.label}, {study.series.start} to {study.series.end},
@@ -145,7 +162,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
         and it is why the leaderboard below has a line drawn across it.
       </p>
 
-      <h3>By tier</h3>
+      <Heading level={3}>By tier</Heading>
       <div class="table-scroll">
         <table class="frame">
           <thead><tr><th>Tier</th><th class="n">Tests</th><th class="n">p &lt; 0.05</th><th class="n">Rate</th></tr></thead>
@@ -157,14 +174,14 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
           </tbody>
         </table>
       </div>
-      <p class="small muted">
+      <p class="note">
         Tier 3, the astrology, produced fewer apparent hits than chance alone
         would give you at this many tests. Tier 4, the calendar effects, produced
         the most, which is the result that says the harness can tell the
         difference, and the reason the control group is in the study at all.
       </p>
 
-      <h2>The strongest result is real. The next two are not.</h2>
+      <Heading id="artefacts">The strongest result is real. The next two are not.</Heading>
       <p>
         The Monday effect tops the table at −14 basis points a day, and it is a
         documented, replicated feature of equity returns going back decades.
@@ -199,7 +216,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
           is exactly the failure the Bangladesh line is about.
         </li>
       </ul>
-      <p class="small muted">
+      <p class="note">
         Complete cycles in sample, for every long-period hypothesis:
         {Object.entries(study.cycles_in_sample ?? {})
           .filter(([, v]: any) => v < 20)
@@ -207,8 +224,8 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
           .join(', ')}.
       </p>
 
-      <h2>The leaderboard</h2>
-      <p class="small muted">
+      <Heading id="leaderboard">The leaderboard</Heading>
+      <p class="note">
         Every test, ranked by raw p-value, the one place on this site where
         anything is sorted by significance, and only to show what that sorting
         would have told you. Effects and intervals in basis points per day.
@@ -218,7 +235,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
 
       {study.skipped?.length > 0 && (
         <>
-          <h3>Not run</h3>
+          <Heading level={3}>Not run</Heading>
           <dl class="skipped">
             {study.skipped.map((s: any) => (
               <>
@@ -232,25 +249,24 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     </>
   ) : (
     <div class="status">
-      <h2>Status: not yet run</h2>
+      <h3>Status: not yet run</h3>
       <p>Run <span class="num">make study</span> to populate this page.</p>
     </div>
   )}
 
-  </section>
-  <section class="band band--2">
-  <h2>The hypothesis list</h2>
+  <Heading id="hypotheses">The hypothesis list</Heading>
   <p>
     Ordered by prior plausibility, not by p-value. That ordering is the
-    intellectual content of the study, and results will be displayed in it too,
-    sorting a leaderboard by significance is how you turn a multiple-comparisons
-    exercise back into a fishing expedition.
+    intellectual content of the study. Sorting by significance is how a
+    multiple-comparisons exercise turns back into a fishing expedition, which
+    is why the leaderboard above is the only place it is done, and only to
+    show what it would have told you.
   </p>
 
   {tiers.map((tier) => (
     <section class="tier">
-      <h3>{tier.name}</h3>
-      {tier.note && <p class="small muted tier-note">{tier.note}</p>}
+      <Heading level={3}>{tier.name}</Heading>
+      {tier.note && <p class="note tier-note">{tier.note}</p>}
       <dl>
         {tier.items.map(([id, note]) => (
           <>
@@ -262,9 +278,7 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     </section>
   ))}
 
-  </section>
-  <section class="band">
-  <h2>How every hypothesis will be treated</h2>
+  <Heading id="treatment">How every hypothesis is treated</Heading>
   <p>
     Identically. No per-hypothesis tuning, which is the whole design. Daily
     index log returns plus forward 5-day and 21-day windows; mean return by bucket
@@ -275,88 +289,78 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(0) : '—');
     informative.
   </p>
   <p>
-    Each hypothesis will also carry a power analysis: the minimum effect
+    Each hypothesis also carries a power analysis: the minimum effect
     detectable at 80% power given the number of events that exist. For most of
-    this list the honest finding will be that you would need more data than the
+    this list the honest finding is that you would need more data than the
     market has produced, and that is the result worth publishing.
   </p>
 
-  </section>
-  <section class="band band--2">
-  <h2 id="bangladesh">The Bangladesh line</h2>
+  <Heading id="bangladesh">The Bangladesh line</Heading>
   <p>
-    When the leaderboard exists it will carry a horizontal rule at the corrected
-    significance threshold, labelled the Bangladesh line, with one footnote
-    beneath it:
+    The leaderboard carries a rule at the corrected significance threshold,
+    labelled the Bangladesh line, with one footnote beneath it.
   </p>
-  <blockquote>
-    In 1994, David Leinweber and Dave Krider searched a UN database of
-    non-financial country statistics and found that butter production in
-    Bangladesh explained 75% of S&amp;P 500 variation from 1981–1993. Adding US
-    cheese production took it to 95%. Adding the sheep populations of Bangladesh
-    and the US took it to 99%. It was published as <em>Stupid Data Miner
-    Tricks</em>. Everything above this line is butter.
-  </blockquote>
+  <div class="full callout">
+    <p>
+      In 1994, David Leinweber and Dave Krider searched a UN database of
+      non-financial country statistics and found that butter production in
+      Bangladesh explained 75% of S&amp;P 500 variation from 1981 to 1993.
+      Adding US cheese production took it to 95%. Adding the sheep populations
+      of Bangladesh and the US took it to 99%. It was published as
+      <em>Stupid Data Miner Tricks</em>. Everything above this line is butter.
+    </p>
+  </div>
 
-  </section></Base>
+  <div class="full next">
+    <a class="arrow-card" href="/studies/moon/">The Moon, rendered from real ephemeris geometry, and the test of lunar phase</a>
+  </div>
+  </div>
+</Base>
 
 <style>
-  .jump {
-    margin: 1.6rem 0 0;
-    padding: 0.75rem 0;
-    border-top: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-  }
-  .jump a { font-size: 0.95rem; }
-
   .scoreboard {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    border-top: 1px solid var(--rule);
-    margin: 1.6rem 0 1.4rem;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 2rem;
+    margin: 2.4rem 0;
   }
-  .scoreboard > div {
-    padding: 0.8rem 1.1rem 0.9rem 0;
-    border-bottom: 1px solid var(--rule);
+  .scoreboard > div { border-top: 1px solid var(--rule); padding-top: 0.9rem; }
+  .scoreboard dt { font-size: var(--label); color: var(--type-muted); margin-bottom: 0.5rem; }
+  .scoreboard dd {
+    margin: 0;
+    font-size: clamp(1.9rem, 1.2rem + 1.6vw, 2.37rem);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
   }
-  .scoreboard dt { font-size: 0.78rem; color: var(--type-muted); margin-bottom: 0.2rem; }
-  .scoreboard dd { margin: 0; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
 
-  .skipped dt { color: var(--amber); font-size: 0.88rem; margin-top: 0.8rem; }
-  .skipped dd { margin: 0.15rem 0 0; color: var(--type-muted); font-size: 0.92rem; }
+  .skipped dt { color: var(--accent); font-size: 1rem; margin-top: 0.9rem; }
+  .skipped dd { margin: 0.2rem 0 0; color: var(--type-muted); font-size: 1rem; }
 
   .status {
-    border: 1px solid var(--rule);
-    border-left: 3px solid var(--amber);
-    padding: 1.1rem 1.3rem;
+    border-left: 3px solid var(--accent);
+    padding: 0.2rem 0 0.2rem 1.4rem;
     margin: 2rem 0 1rem;
-    background: var(--panel);
   }
-  .status h2 { margin: 0 0 0.5rem; font-size: 1.05rem; color: var(--amber); }
-  .status p { margin: 0 0 0.7rem; }
-  .status p:last-child { margin-bottom: 0; }
+  .status h3 { margin: 0 0 0.5rem; font-size: 1.086rem; color: var(--accent); }
+  .status p { margin: 0; }
 
-  .tier { margin: 2rem 0; }
-  .tier h3 { margin-bottom: 0.2rem; }
-  .tier-note { margin: 0 0 0.8rem; }
-  .tier dl { margin: 0; }
+  .tier { margin: 2.4rem 0; }
+  .tier-note { margin: 0 0 1rem; }
+  .tier dl { margin: 0; border-top: 1px solid var(--rule); }
   .tier dt {
-    font-size: 0.88rem;
-    color: var(--amber);
-    margin-top: 0.85rem;
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--accent);
+    padding-top: 0.8rem;
   }
   .tier dd {
-    margin: 0.15rem 0 0;
-    max-width: var(--measure);
-    font-size: 0.94rem;
-    color: var(--type-muted);
+    margin: 0.3rem 0 0;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid var(--rule);
+    font-size: 1.086rem;
+    line-height: 1.45;
   }
+  .tier dt:has(+ dt) { padding-bottom: 0.8rem; border-bottom: 1px solid var(--rule); }
 
-  blockquote {
-    border-left: 2px solid var(--rule);
-    margin: 1.4rem 0;
-    padding-left: 1.15rem;
-    color: var(--type-muted);
-    max-width: var(--measure);
-  }
+  .next { margin-top: 1rem; }
 </style>

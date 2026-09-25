@@ -1,152 +1,160 @@
 ---
 import Base from '../layouts/Base.astro';
+import Heading from '../components/Heading.astro';
 import { getIndex, getLatest, int } from '../lib/archive';
 
 const index = getIndex();
 const latest = getLatest();
+
+const derived = !latest?.synthetic && latest?.feed && latest.feed !== 'opra';
+const sections = [
+  { id: 'why', label: 'Why it exists' },
+  { id: 'not', label: 'What it is not' },
+  ...(derived || latest?.synthetic ? [{ id: 'data', label: 'On the current data' }] : []),
+  { id: 'licensing', label: 'Data licensing' },
+  { id: 'reproducibility', label: 'Reproducibility' },
+  { id: 'corrections', label: 'Corrections' },
+];
+let n = 0;
+const no = () => `5.${++n}`;
 ---
 
-<Base title="About" description="What this is, and what it is not.">
-  <h1>About</h1>
-
-  <p class="lede">
-    Pitfield St publishes computed derivatives data and the code that
-    produced it. Every trading day the pipeline ingests option chains, extracts
-    forwards from put–call parity, fits arbitrage-free volatility surfaces,
-    computes a full metric set, and publishes the results alongside the quality
-    report describing what it had to throw away.
+<Base title="About" description="What this is, and what it is not." sections={sections}>
+  <div class="page">
+  <Heading level={1} no="5">About</Heading>
+  <p>
+    Pitfield St publishes computed derivatives data and the code that produced
+    it. Every trading day the pipeline ingests option chains, extracts forwards
+    from put and call parity, fits arbitrage-free volatility surfaces, computes
+    a full metric set, and publishes the results alongside the quality report
+    describing what it had to throw away.
   </p>
 
-  <section class="band">
-  <h2>Why it exists</h2>
+  <Heading no={no()} id="why">Why it exists</Heading>
   <p>
     Institutional options data is priced as though only institutions should
     have it. A consolidated options feed runs to thousands of dollars a month
     before anyone has computed anything with it, and the licensing makes
-    redistribution of what you derive its own negotiation. The effect is that
-    the people most able to check this kind of work, students and independent
-    researchers and anyone curious and rigorous without a desk behind them, are
-    priced out of even looking.
+    redistribution of what you derive its own negotiation. The people most able
+    to check this kind of work, students and independent researchers and anyone
+    curious and rigorous without a desk behind them, are priced out of even
+    looking.
+  </p>
+  <div class="full callout">
+    <p>
+      The intention is to close that gap: to offer institutional-grade computed
+      data for a fraction of what the underlying costs, and one day for free
+      wherever the licensing allows it.
+    </p>
+  </div>
+  <p>
+    This archive publishes the computed layer: forwards, surfaces, greeks, the
+    full metric set, and the quality report describing what was discarded.
+    Everything on this site today is free to read and free to cite. Where a
+    licence prevents something, the constraint is stated rather than quietly
+    worked around.
   </p>
   <p>
-    The intention here is to close that gap. This archive publishes the
-    computed layer: forwards, surfaces, greeks, the full metric set, and the
-    quality report describing what was discarded, at a fraction of what the
-    underlying costs, and free wherever the licensing allows it. Everything on
-    this site today is free to read and free to cite. Where a licence prevents
-    that, the constraint is stated rather than quietly worked around.
-  </p>
-  <p>
-    That is an aim, not a promise, and it is worth being exact about which.
-    The archive currently runs on a derived feed because a consolidated one is
-    not yet funded, and every page says so. What is already true is the part
-    that matters most: the method is open, the code is public, the inputs are
-    named, and anyone can reproduce the numbers or find the error in them.
+    That is an aim, not a promise, and it is worth being exact about which. The
+    archive currently runs on a derived feed because a consolidated one is not
+    yet funded, and every page says so. What is already true is the part that
+    matters most: the method is open, the code is public, the inputs are named,
+    and anyone can reproduce the numbers or find the error in them.
   </p>
 
-  </section>
-  <section class="band band--2">
-  <h2>What it is not</h2>
+  <Heading no={no()} id="not">What it is not</Heading>
   <ul>
     <li>Not a signals service. There are no buy or sell recommendations, no alerts, no screeners.</li>
     <li>Not a claim of predictive edge. Nothing here is presented as tradeable.</li>
     <li>Not investment advice, and not a recommendation about any security.</li>
-    <li>Not a real-time feed. Published quotes are end-of-day or delayed, never streaming.</li>
+    <li>Not a real-time feed. Published values are end of day, never streaming.</li>
     <li>There is not a single backtest equity curve in the repository, and there never will be.</li>
   </ul>
 
-  {!latest?.synthetic && latest?.feed && latest.feed !== 'opra' && (
+  {derived && (
     <>
-      <h2>On the current data</h2>
-      <div class="banner" role="note">
-        <strong>Quotes are derived, not the consolidated tape.</strong>
-        <p>
-          The chains behind these numbers come from Alpaca's
-          <code>{latest.feed}</code> feed, which estimates a quote rather than
-          reporting the OPRA consolidated NBBO. This archive has no OPRA
-          entitlement, and rather than publish nothing it publishes this,
-          labelled. Every stored row carries the feed it came from, so the
-          record stays honest even if a later page forgets to mention it.
-        </p>
-        <p>
-          What that costs you: the levels are estimates, the spreads are not
-          tradeable, and a volatility surface fitted to them should not be
-          treated as the market's. What it does not cost: the pipeline,
-          the parity forward extraction, the arbitrage conditions and the
-          quality report are the same code that would run on a licensed feed.
-        </p>
+      <Heading no={no()} id="data">On the current data</Heading>
+      <p>
+        The chains behind these numbers come from Alpaca's
+        <code>{latest.feed}</code> feed, which estimates a quote rather than
+        reporting the OPRA consolidated best bid and offer. This archive has no
+        OPRA entitlement, and rather than publish nothing it publishes this,
+        labelled. Every stored row carries the feed it came from, so the record
+        stays honest even if a later page forgets to mention it.
+      </p>
+      <div class="full stagger">
+        <div>
+          <h3>What that costs you</h3>
+          <p>
+            The levels are estimates, the spreads are not tradeable, and a
+            volatility surface fitted to them should not be treated as the
+            market's.
+          </p>
+        </div>
+        <div>
+          <h3>What it does not</h3>
+          <p>
+            The pipeline, the parity forward extraction, the arbitrage
+            conditions and the quality report are the same code that would run
+            on a licensed feed.
+          </p>
+        </div>
       </div>
     </>
   )}
 
   {latest?.synthetic && (
     <>
-      <h2>On the current data</h2>
-      <div class="banner" role="note">
-        <strong>The archive currently runs on synthetic chains.</strong>
-        <p>
-          The pipeline, the calibration, the arbitrage checks and the statistics
-          are real, and are exactly the code that will run against a licensed
-          feed. The quotes they are presently run against are generated by a
-          simulator in this repository, which prices chains from a known forward
-          and known SVI parameters, which is what makes the calibration testable,
-          since the test suite can assert the pipeline recovers the parameters it
-          was handed.
-        </p>
-        <p>
-          Nothing on this site describes an actual security today. Every page
-          built on generated numbers says so at the top. When a licensed source
-          is connected, the synthetic banner disappears and the archive begins
-          accruing real observations. The code itself does not change.
-        </p>
-      </div>
+      <Heading no={no()} id="data">On the current data</Heading>
+      <p>
+        The pipeline, the calibration, the arbitrage checks and the statistics
+        are real, and are exactly the code that will run against a licensed
+        feed. The quotes they are presently run against are generated by a
+        simulator in this repository, which prices chains from a known forward
+        and known SVI parameters. That is what makes the calibration testable:
+        the test suite can assert the pipeline recovers the parameters it was
+        handed.
+      </p>
+      <p>
+        Nothing on this site describes an actual security today. Every page
+        built on generated numbers says so at the top.
+      </p>
     </>
   )}
 
-  </section>
-  <section class="band">
-  <h2>Data licensing</h2>
+  <Heading no={no()} id="licensing">Data licensing</Heading>
   <p>
-    Market data will be sourced under a single-person, non-professional,
-    non-redistributing licence. Published quotes are therefore end-of-day or
-    delayed. Derived values (implied volatilities, greeks, SVI parameters,
-    aggregates) are this project's own computations and are published freely.
+    Market data is sourced under a single-person, non-professional,
+    non-redistributing licence. Raw quotes are therefore never republished.
+    Derived values, implied volatilities, greeks, SVI parameters and
+    aggregates, are this project's own computations and are published with
+    their method.
   </p>
 
-  </section>
-  <section class="band band--2">
-  <h2>Reproducibility</h2>
+  <Heading no={no()} id="reproducibility">Reproducibility</Heading>
   <p>
-    The repository is public and the scheduled runs are public with it, which
-    means the run logs are third-party evidence that the pipeline has been
-    operating unattended rather than a claim on this page. A clone plus
-    <span class="num">make demo</span> reproduces a full day's output from raw
-    inputs, including this site.
+    The repository is public and the scheduled runs are public with it, so the
+    run logs are third-party evidence that the pipeline has been operating
+    unattended rather than a claim on this page. A clone plus
+    <code>make demo</code> reproduces a full day's output from raw inputs,
+    including this site.
   </p>
   {index && (
-    <table class="facts">
-      <tbody>
-        <tr><th>Days archived</th><td class="n">{int(index.n_days)}</td></tr>
-        <tr><th>Contract-days</th><td class="n">{int(index.contract_days)}</td></tr>
-        <tr><th>Latest session</th><td class="n">{index.latest_date}</td></tr>
-        <tr><th>Pipeline version</th><td class="n">{index.pipeline_version}</td></tr>
-      </tbody>
-    </table>
+    <dl class="figures">
+      <div><dt>Days archived</dt><dd>{int(index.n_days)}</dd></div>
+      <div><dt>Contract-days</dt><dd>{int(index.contract_days)}</dd></div>
+      <div><dt>Latest session</dt><dd>{index.latest_date}</dd></div>
+      <div><dt>Pipeline version</dt><dd>{index.pipeline_version}</dd></div>
+    </dl>
   )}
 
-  </section>
-  <section class="band">
-  <h2>Corrections</h2>
+  <Heading no={no()} id="corrections">Corrections</Heading>
   <p>
-    Nothing in the archive is ever overwritten. A correction is written as a new
-    row with a later snapshot timestamp, and readers default to the first
-    observation of a given contract on a given day. Rows carry the version of the
-    code that wrote them, so output from a bug can be identified without deleting
-    the record that it happened.
+    Nothing in the archive is ever overwritten. A correction is written as a
+    new row with a later snapshot timestamp, and readers default to the first
+    observation of a given contract on a given day. Rows carry the version of
+    the code that wrote them, so output from a bug can be identified without
+    deleting the record that it happened.
   </p>
-
-  </section></Base>
-
-<style>
-  .facts { max-width: 34rem; margin: 1.2rem 0; }
-</style>
+  </div>
+</Base>

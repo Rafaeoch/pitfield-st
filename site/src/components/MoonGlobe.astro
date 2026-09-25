@@ -51,10 +51,8 @@ const { height = '58vh' } = Astro.props;
     height: var(--moon-height);
     min-height: 340px;
     overflow: hidden;
-    border-top: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
     background:
-      radial-gradient(ellipse 70% 55% at 50% 45%, #131c2b 0%, #0b1017 62%, #070a0f 100%);
+      radial-gradient(ellipse 70% 55% at 50% 45%, #2e2e2e 0%, #1f1f1f 62%, #171717 100%);
   }
   .starfield { position: absolute; inset: 0; pointer-events: none; }
   .moon-canvas {
@@ -67,9 +65,7 @@ const { height = '58vh' } = Astro.props;
   .moon-canvas canvas { display: block; }
 
   .moon-controls {
-    max-width: 78rem;
-    margin: 0 auto;
-    padding: 1rem clamp(1rem, 4vw, 3rem) 0;
+    padding: 1.2rem 0 0;
     display: flex;
     flex-wrap: wrap;
     align-items: end;
@@ -85,7 +81,7 @@ const { height = '58vh' } = Astro.props;
     color: var(--type-muted);
     margin-bottom: 0.3rem;
   }
-  .scrub input { width: 100%; accent-color: var(--amber); }
+  .scrub input { width: 100%; accent-color: var(--accent); }
 
   .scrub-readout {
     display: flex;
@@ -94,8 +90,8 @@ const { height = '58vh' } = Astro.props;
     gap: 0.75rem;
     margin: 0;
     max-width: none;
-    font-family: var(--mono);
-    font-size: 0.85rem;
+    font-size: var(--label);
+    font-variant-numeric: tabular-nums;
     color: var(--type-muted);
   }
   .scrub-readout output { color: var(--type); }
@@ -111,8 +107,8 @@ const { height = '58vh' } = Astro.props;
     padding: 0.36rem 0.85rem;
     cursor: pointer;
   }
-  .moon-controls button:hover { border-color: var(--amber); color: var(--amber); }
-  .moon-controls button[aria-pressed='true'] { border-color: var(--amber); color: var(--amber); }
+  .moon-controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .moon-controls button[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
 </style>
 
 <script>

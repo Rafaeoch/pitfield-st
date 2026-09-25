@@ -100,7 +100,7 @@ const payload = rows.map((d) => ({
       </span>
     </figcaption>
 
-    <div class="vh-wrap frame">
+    <div class="vh-wrap">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
@@ -156,31 +156,24 @@ const payload = rows.map((d) => ({
     margin-bottom: 0.7rem;
   }
   .vh-title {
-    font-size: 0.74rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: var(--label);
     color: var(--type-muted);
   }
   .vh-legend {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.76rem;
+    font-size: var(--label);
     color: var(--type-muted);
     font-variant-numeric: tabular-nums;
   }
   .sw { width: 14px; height: 2px; display: inline-block; margin-right: 0.15rem; }
-  .sw-iv { background: var(--amber); }
+  .sw-iv { background: var(--accent); }
   .sw-rv { background: var(--type-muted); }
   .sw-rv { margin-left: 0.7rem; }
   .vh-note { margin-left: 0.7rem; opacity: 0.7; }
 
   .vh-wrap { position: relative; }
-  /* The chart draws its own horizontal gridlines at the value ticks, so the
-     frame's generic ruling would sit behind them at a different rhythm and
-     read as moire. */
-  .vh-wrap.frame::before { display: none; }
-  .vh-wrap.frame { padding: 0.8rem 0.9rem 0.2rem; }
   .vh svg {
     width: 100%;
     height: auto;
@@ -189,19 +182,19 @@ const payload = rows.map((d) => ({
     touch-action: pan-y;
   }
 
-  .grid { stroke: var(--rule); stroke-width: 1; opacity: 0.5; vector-effect: non-scaling-stroke; }
+  .grid { stroke: var(--rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
   .tick {
     fill: var(--type-muted);
-    font-size: 10px;
+    font-size: 11px;
     font-variant-numeric: tabular-nums;
   }
-  .band { fill: var(--amber); opacity: 0.1; }
+  .band { fill: var(--accent); opacity: 0.16; }
   .ln { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
-  .ln-iv { stroke: var(--amber); }
+  .ln-iv { stroke: var(--accent); }
   .ln-rv { stroke: var(--type-muted); opacity: 0.85; }
 
   .cx { stroke: var(--type); stroke-width: 1; opacity: 0.35; vector-effect: non-scaling-stroke; }
-  .pt-iv { fill: var(--amber); }
+  .pt-iv { fill: var(--accent); }
   .pt-rv { fill: var(--type-muted); }
 
   .vh-read {
@@ -211,16 +204,17 @@ const payload = rows.map((d) => ({
     display: flex;
     gap: 0.9rem;
     padding: 0.35rem 0.6rem;
-    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    background: var(--ground);
     border: 1px solid var(--rule);
-    font-size: 0.76rem;
+    font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
     pointer-events: none;
     white-space: nowrap;
     transform: translate(-50%, -120%);
   }
+  .vh-read[hidden], .cursor[hidden] { display: none; }
   .vh-date { color: var(--type-muted); }
-  .vh-iv { color: var(--amber); }
+  .vh-iv { color: var(--accent); }
   .vh-rv { color: var(--type); }
   .vh-sp { color: var(--type-muted); }
 
