@@ -13,8 +13,12 @@ interface Props {
   title: string;
   description?: string;
   wide?: boolean;
+  /** The masthead floats over the first screen instead of sitting above it,
+   *  so a full-bleed hero is the first thing on the page rather than the
+   *  second. For the homepage. */
+  overlay?: boolean;
 }
-const { title, description, wide = false } = Astro.props;
+const { title, description, wide = false, overlay = false } = Astro.props;
 import Mark from '../components/Mark.astro';
 const path = Astro.url.pathname;
 const canonical = new URL(path, Astro.site ?? 'https://pitfieldstresearch.com').href;
@@ -81,7 +85,7 @@ const isActive = (href: string) =>
   <body>
     <a class="skip" href="#main">Skip to content</a>
 
-    <header class="masthead">
+    <header class={overlay ? "masthead masthead--overlay" : "masthead"}>
       <a class="wordmark" href="/">
         <Mark size={62} />
         <span class="wordmark-text">
@@ -114,7 +118,7 @@ const isActive = (href: string) =>
       </nav>
     </header>
 
-    <main id="main" class={wide ? 'wide' : ''}>
+    <main id="main" class={[wide && 'wide', overlay && 'overlaid'].filter(Boolean).join(' ')}>
       <slot />
     </main>
 
@@ -384,6 +388,36 @@ const isActive = (href: string) =>
         );
       }
       main.wide::before { display: none; }
+
+      /* Overlay pages: the masthead floats on the hero, so the first screen is
+         the hero rather than a header bar, a 60px strip of padding, and then
+         the hero. A soft darkening at the top keeps the nav legible over
+         whatever the surface happens to be doing underneath it. */
+      .masthead--overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        border-bottom: none;
+        background: linear-gradient(
+          to bottom,
+          color-mix(in srgb, var(--ground-1) 82%, transparent) 0%,
+          color-mix(in srgb, var(--ground-1) 40%, transparent) 60%,
+          transparent 100%
+        );
+      }
+      main.overlaid { padding-top: 0; }
+      /* On a phone the nav wraps to several rows and the headline sits below
+         the surface rather than over it, so floating the nav would only drop
+         three rows of links on top of the picture. It sits above instead. */
+      @media (max-width: 720px) {
+        .masthead--overlay {
+          position: static;
+          background: none;
+          border-bottom: 1px solid var(--rule);
+        }
+      }
 
       /* The lit layer. Same lines, brighter, shown through a soft circular
          mask that follows the pointer. Until the pointer arrives the mask sits

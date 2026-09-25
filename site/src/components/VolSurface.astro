@@ -11,8 +11,13 @@ interface Props {
   height?: string;
   src?: string;
   id?: string;
+  /** Ambient motion: the ribs walk the Ultra Violet family in step with the
+   *  mark, a glow travels with the colour front, and the camera drifts. For the
+   *  homepage hero. Off by default, so the analysis page stays still while
+   *  someone is reading values off it. */
+  ambient?: boolean;
 }
-const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.props;
+const { height = '62vh', src = '/data/latest.json', id = 'surface', ambient = false } = Astro.props;
 ---
 
 <figure class="surface-figure" style={`--surface-height: ${height}`}>
@@ -20,6 +25,7 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
     class="surface-canvas"
     id={id}
     data-src={src}
+    data-ambient={ambient ? 'true' : 'false'}
     role="img"
     tabindex="0"
     aria-label="Three-dimensional plot of the fitted implied volatility surface. Drag or use arrow keys to rotate."
@@ -81,6 +87,7 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
 
 <script>
   import * as THREE from 'three';
+  import { bandProgress, clockPhase, mixRgb } from '../lib/choreography';
 
   // The Ultra Violet family, sorted by luminance rather than by the order the
   // swatches were given. Colour here encodes a value -- implied volatility --
@@ -223,7 +230,12 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
     const geometry = new THREE.BufferGeometry();
     const posAttr = new THREE.Float32BufferAttribute(positions, 3);
     geometry.setAttribute('position', posAttr);
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const colorAttr = new THREE.Float32BufferAttribute(colors, 3);
+    geometry.setAttribute('color', colorAttr);
+    // The value-encoded colours, kept so the travelling glow can brighten a row
+    // and hand it back exactly as it was. The glow is light passing over the
+    // surface, never a change to what the colours say.
+    const baseColors = Float32Array.from(colors);
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
@@ -245,6 +257,21 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
     // with maturity, because a one-week option five percent out of the money is
     // genuinely worth pennies and stops being quoted. Without the ribs the
     // stepped edge reads as a rendering fault rather than as the data.
+    const ambient = host.dataset.ambient === 'true';
+    // A rib in the mark's colours, lifted toward white so it still reads where
+    // it crosses a violet stretch of the mesh underneath it.
+    const RIB_LIFT = 0.28;
+    const ribColour = (target: THREE.Color, i: number, j: number, f: number) => {
+      const [r, g, b] = mixRgb(i, j, f);
+      return target.setRGB(
+        (r + (255 - r) * RIB_LIFT) / 255,
+        (g + (255 - g) * RIB_LIFT) / 255,
+        (b + (255 - b) * RIB_LIFT) / 255,
+        THREE.SRGBColorSpace
+      );
+    };
+
+    const ribs: THREE.Line[] = [];
     const contourGroup = new THREE.Group();
     for (let r = 0; r < rows.length; r++) {
       const pts: THREE.Vector3[] = [];
@@ -254,16 +281,18 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
         pts.push(new THREE.Vector3(positions[i], positions[i + 1] + 0.02, positions[i + 2]));
       }
       if (pts.length > 1) {
-        contourGroup.add(
-          new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(pts),
-            new THREE.LineBasicMaterial({
-              color: 0xe6e3db,
-              transparent: true,
-              opacity: 0.5,
-            })
-          )
-        );
+        const material = new THREE.LineBasicMaterial({
+          color: 0xe6e3db,
+          transparent: true,
+          opacity: ambient ? 0.92 : 0.5,
+        });
+        // At rest an ambient rib holds Ultra Violet, as the mark's static pose
+        // does; the loop takes it from there.
+        if (ambient) ribColour(material.color, 0, 0, 0);
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), material);
+        line.userData.row = r;
+        ribs.push(line);
+        contourGroup.add(line);
       }
     }
     scene.add(contourGroup);
@@ -282,19 +311,41 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
     host.innerHTML = '';
     host.appendChild(renderer.domElement);
 
-    let azimuth = -0.74, polar = 0.95, radius = 11.0;
+    // As the homepage hero the surface fills the screen behind a headline set
+    // on the left, so it is brought closer and aimed off-centre: looking at a
+    // point left of the surface puts the surface right of the text.
+    // Framing depends on where the headline is. On a wide screen it sits over
+    // the left of the hero, so the camera aims left of the surface to push it
+    // right, and above it to keep the short-dated wings -- the tallest thing
+    // on it -- clear of the floating nav. On a phone the headline is below the
+    // surface, so it is simply centred and pulled back to fit the narrow frame.
+    const narrow = () => host.clientWidth < 720;
+    let azimuth = -0.74, polar = 0.95;
+    let radius = ambient ? (narrow() ? 13.5 : 10.6) : 11.0;
+    let lookX = 0, lookY = 0.35;
+    const aim = () => {
+      lookX = ambient && !narrow() ? -1.9 : 0;
+      lookY = ambient && !narrow() ? 1.25 : 0.35;
+    };
+    aim();
+    // Drift and parallax are offsets on top of where the reader put the camera,
+    // so dragging still sets the view and the motion only ever adds to it.
+    let offAz = 0, offPol = 0;
     const applyCamera = () => {
+      const az = azimuth + offAz;
+      const po = Math.min(Math.max(polar + offPol, 0.16), 1.52);
       camera.position.set(
-        radius * Math.sin(polar) * Math.sin(azimuth),
-        radius * Math.cos(polar),
-        radius * Math.sin(polar) * Math.cos(azimuth)
+        radius * Math.sin(po) * Math.sin(az),
+        radius * Math.cos(po),
+        radius * Math.sin(po) * Math.cos(az)
       );
-      camera.lookAt(0, 0.35, 0);
+      camera.lookAt(lookX, lookY, 0);
     };
 
     const render = () => renderer.render(scene, camera);
 
     const resize = () => {
+      aim();
       const w = host.clientWidth;
       const h = host.clientHeight;
       // setSize must update the element's CSS size too. Passing false leaves
@@ -350,19 +401,33 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
       applyCamera();
     });
 
-    // Nothing animates unless a person acts on it, so every interaction
-    // redraws explicitly rather than running a permanent render loop.
+    // Off the homepage nothing animates unless a person acts on it, so every
+    // interaction redraws explicitly rather than running a render loop. The
+    // ambient loop below, where enabled, simply renders over these.
     host.addEventListener('pointermove', render);
     host.addEventListener('keydown', render);
     host.addEventListener('wheel', render);
 
     const targetAz = azimuth;
-    const setProgress = (e: number) => {
+    // Rows rise one after another, nearest maturity first -- the same idea as
+    // the mark turning a band at a time. Only the order of arrival is staged:
+    // every row ends at exactly its fitted height.
+    const STAGGER = 0.45;
+    const rowRise = (t: number, r: number) => {
+      const delay = (1 - r / Math.max(rows.length - 1, 1)) * STAGGER;
+      return easeOut(Math.min(Math.max((t - delay) / (1 - STAGGER), 0), 1));
+    };
+    // `t` is linear time through the entrance; each row eases itself.
+    const setProgress = (t: number) => {
       const arr = posAttr.array as Float32Array;
-      for (let i = 0; i < heights.length; i++) arr[i * 3 + 1] = heights[i] * e;
+      for (let i = 0; i < heights.length; i++) {
+        arr[i * 3 + 1] = heights[i] * (t >= 1 ? 1 : rowRise(t, Math.floor(i / cols)));
+      }
       posAttr.needsUpdate = true;
       geometry.computeVertexNormals();
-      contourGroup.visible = e > 0.55;
+      // A rib sits at its row's final height, so it appears once that row has
+      // arrived rather than floating above a surface still rising under it.
+      for (const rib of ribs) rib.visible = t >= 1 || rowRise(t, rib.userData.row) > 0.97;
       applyCamera();
       render();
     };
@@ -381,19 +446,113 @@ const { height = '62vh', src = '/data/latest.json', id = 'surface' } = Astro.pro
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     function runSettleAnimation() {
-      const DURATION = 1150;
+      const DURATION = 1700;
       const start = performance.now();
       const startAz = targetAz - 0.5;
 
       function frame(now: number) {
         const t = Math.min((now - start) / DURATION, 1);
-        const e = easeOut(t);
-        azimuth = startAz + (targetAz - startAz) * e;
-        setProgress(e);
+        azimuth = startAz + (targetAz - startAz) * easeOut(t);
+        setProgress(t);
         if (t < 1) requestAnimationFrame(frame);
-        else settled();
+        else {
+          settled();
+          if (ambient) startAmbient();
+        }
       }
       requestAnimationFrame(frame);
+    }
+
+    // --- ambient motion, homepage only -------------------------------------
+    //
+    // Three things move, and none of them is the data. The ribs walk the
+    // Ultra Violet family on the same clock as the mark in the masthead, so the
+    // logo and the surface it is drawn from change colour together. A glow
+    // travels with the colour front, brightening each row as its rib turns and
+    // handing it back unchanged. And the camera drifts slowly, leaning toward
+    // the pointer. Every vertex stays exactly where the fit put it.
+    //
+    // Runs only while the surface is on screen: a hero scrolled out of view has
+    // no business spending a battery.
+    const GLOW = 0.55;
+    function startAmbient() {
+      let raf = 0;
+      let inView = true;
+      let parAz = 0, parPol = 0, aimAz = 0, aimPol = 0;
+      const R = rows.length;
+      const turn = new Float32Array(R);   // how far each row's rib has turned
+      const glow = new Float32Array(R);
+      const colours = colorAttr.array as Float32Array;
+
+      window.addEventListener(
+        'pointermove',
+        (e) => {
+          const b = host.getBoundingClientRect();
+          const inside =
+            e.clientX >= b.left && e.clientX <= b.right &&
+            e.clientY >= b.top && e.clientY <= b.bottom;
+          if (!inside || dragging) {
+            aimAz = aimPol = 0;
+            return;
+          }
+          aimAz = ((e.clientX - b.left) / b.width - 0.5) * 0.16;
+          aimPol = ((e.clientY - b.top) / b.height - 0.5) * 0.06;
+        },
+        { passive: true }
+      );
+
+      const tick = (now: number) => {
+        const s = now / 1000;
+        // A slow turn of about thirty degrees either way over forty seconds --
+        // enough to read as the surface moving, not as the page jittering --
+        // with a lift on an unrelated period so the motion never visibly loops.
+        // Kept short of a full turn: seen from behind, puts and calls swap
+        // sides and the surface would read backwards.
+        const driftAz = 0.52 * Math.sin((2 * Math.PI * s) / 40);
+        const driftPol = 0.06 * Math.sin((2 * Math.PI * s) / 23 + 1.3);
+        parAz += (aimAz - parAz) * 0.06;
+        parPol += (aimPol - parPol) * 0.06;
+        offAz = driftAz + parAz;
+        offPol = driftPol + parPol;
+        applyCamera();
+
+        const { step, w } = clockPhase(now);
+        for (let r = 0; r < R; r++) {
+          turn[r] = bandProgress(r / Math.max(R - 1, 1), R, step, w);
+          glow[r] = 4 * turn[r] * (1 - turn[r]);   // peaks as the row is mid-turn
+        }
+        for (const rib of ribs) {
+          ribColour(
+            (rib.material as THREE.LineBasicMaterial).color,
+            step, step + 1, turn[rib.userData.row]
+          );
+        }
+        for (let i = 0; i < colours.length; i += 3) {
+          const k = 1 + GLOW * glow[Math.floor(i / 3 / cols)];
+          colours[i] = Math.min(baseColors[i] * k, 1);
+          colours[i + 1] = Math.min(baseColors[i + 1] * k, 1);
+          colours[i + 2] = Math.min(baseColors[i + 2] * k, 1);
+        }
+        colorAttr.needsUpdate = true;
+
+        render();
+        raf = requestAnimationFrame(tick);
+      };
+
+      // Not gated on document.hidden: browsers already withhold frames from a
+      // hidden tab, and gating on it can leave the loop never starting at all.
+      const run = () => {
+        if (!raf && inView) raf = requestAnimationFrame(tick);
+      };
+      const stop = () => {
+        if (raf) cancelAnimationFrame(raf);
+        raf = 0;
+      };
+      new IntersectionObserver((entries) => {
+        inView = entries[0].isIntersecting;
+        inView ? run() : stop();
+      }).observe(host);
+      run();
     }
 
     if (!reduced) {

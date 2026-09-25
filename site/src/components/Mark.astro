@@ -35,34 +35,9 @@
 interface Props { size?: number; class?: string; animate?: boolean }
 const { size = 30, class: className = '', animate = true } = Astro.props;
 
-// The Ultra Violet family, ordered dark to light so it reads as one ramp
-// rather than eight unrelated swatches. Pantone spot colours have no exact
-// sRGB equivalent; these are the standard approximations.
-//
-//   18-3838 Ultra Violet    19-3336 Sparkling Grape   17-3014 Mulberry
-//   17-3930 Jacaranda       16-3817 Rhapsody          17-1818 Red Violet
-//   17-2120 Chateau Rose    14-2311 Prism Pink
-//
-// Ultra Violet anchors it and is where the resting pose sits. It is the
-// darkest of the eight, so the cycle deliberately spends most of its time
-// above it: a mark that rested at 2.6:1 against this ground would be dim.
-const RAMP: [number, number, number][] = [
-  [0x5F, 0x4B, 0x8B],  // Ultra Violet    18-3838
-  [0x8B, 0x4A, 0x8B],  // Sparkling Grape 19-3336
-  [0xA9, 0x6F, 0xA5],  // Mulberry        17-3014
-  [0x7D, 0x8B, 0xC7],  // Jacaranda       17-3930
-  [0xA0, 0x93, 0xC0],  // Rhapsody        16-3817
-  [0xA8, 0x5C, 0x82],  // Red Violet      17-1818
-  [0xD9, 0x73, 0x8F],  // Chateau Rose    17-2120
-  [0xF0, 0xA6, 0xCE],  // Prism Pink      14-2311
-];
-
-function mix(i: number, j: number, f: number): string {
-  const a = RAMP[i % RAMP.length];
-  const b = RAMP[j % RAMP.length];
-  const ch = (c: number) => Math.round(a[c] + (b[c] - a[c]) * f);
-  return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
-}
+// The colour family and the rules for walking it live in one module, shared
+// with the hero surface, so the mark and the surface cannot drift apart.
+import { RAMP, mixCss } from '../lib/choreography';
 
 const N = 6;
 const W = 110;
@@ -111,7 +86,7 @@ const lines = Array.from({ length: N }, (_, i) => {
     d: curve(depth),
     width: (2.5 - depth * 1.15).toFixed(2),
     opacity: (1 - depth * 0.42).toFixed(2),
-    stroke: mix(0, 0, 0),
+    stroke: mixCss(0, 0, 0),
     depth,
   };
 });
@@ -125,7 +100,7 @@ const lines = Array.from({ length: N }, (_, i) => {
   role="img"
   aria-label="Pitfield St: a volatility surface in section"
   data-animate={animate ? 'true' : 'false'}
-  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE, RAMP, SKEW, AMP, FLAT })}
+  data-geom={JSON.stringify({ N, W, H, LIFT, SMILE, SKEW, AMP, FLAT })}
 >
   <g transform={`rotate(${TILT} ${(W + SKEW) / 2} ${H / 2})`}>
   {lines.map((l) => (
@@ -150,6 +125,8 @@ const lines = Array.from({ length: N }, (_, i) => {
 </style>
 
 <script>
+  import { bandProgress, clockPhase, mixCss } from '../lib/choreography';
+
   for (const svg of document.querySelectorAll<SVGSVGElement>('.mark[data-animate="true"]')) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) continue;
 
@@ -157,35 +134,9 @@ const lines = Array.from({ length: N }, (_, i) => {
     const paths = [...svg.querySelectorAll<SVGPathElement>('.mark-line')];
     const depths = paths.map((p) => parseFloat(p.dataset.depth || '0'));
 
-    // The whole stack holds one colour, then changes to the next a band at a
-    // time until every band has turned, then the next colour begins. So the
-    // mark is only ever mid-transition or uniform, never a gradient of eight.
-    //
-    // Direction alternates: one colour sweeps back to front, the next front to
-    // back. A sweep that always ran the same way would snap back to the start
-    // on every change; alternating makes it read as a ripple crossing and
-    // returning.
-    const R = g.RAMP as [number, number, number][];
-    const mix = (i: number, j: number, f: number) => {
-      const a = R[i % R.length], b = R[j % R.length];
-      const ch = (c: number) => Math.round(a[c] + (b[c] - a[c]) * f);
-      return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
-    };
-
-    const N_BANDS = paths.length;
-    const BAND_SPAN = 0.72;   // share of a step spent sweeping; the rest rests
-    const OVERLAP = 1.9;      // >1 lets neighbours blend rather than snap
-
-    const colourFor = (depth: number, step: number, w: number) => {
-      // depth 0 is the front curve, 1 the rearmost.
-      const order = step % 2 === 0 ? 1 - depth : depth;
-      const slot = order * BAND_SPAN * (1 - 1 / N_BANDS);
-      const width = (BAND_SPAN / N_BANDS) * OVERLAP;
-      const f = Math.min(Math.max((w - slot) / width, 0), 1);
-      // Smoothstep, so a band eases into its new colour instead of snapping.
-      const e = f * f * (3 - 2 * f);
-      return mix(step, step + 1, e);
-    };
+    // The whole stack holds one colour, then turns to the next a band at a
+    // time, alternating direction each step. The rules and the clock come from
+    // the shared module so the hero surface's ribs turn at the same moment.
 
     const build = (depth: number, t: number) => {
       const sc = 1 - g.FLAT * depth;
@@ -202,8 +153,6 @@ const lines = Array.from({ length: N }, (_, i) => {
       return d;
     };
 
-    const SECONDS_PER_COLOUR = 3.2;   // eight colours, so a lap is ~26s
-
     let raf = 0;
     let visible = true;
     const start = performance.now();
@@ -212,13 +161,15 @@ const lines = Array.from({ length: N }, (_, i) => {
       // Slow. A logo that moves quickly is a distraction; this should read as
       // a tide rather than an animation.
       const t = ((now - start) / 1000) * 0.55;
-      // One full colour every SECONDS_PER_COLOUR; eight of them per lap.
-      const phase = ((now - start) / 1000) / SECONDS_PER_COLOUR;
-      const step = Math.floor(phase);
-      const w = phase - step;
+      // The page clock, not time since this mark started: that is what keeps
+      // it in step with the surface, which mounts later.
+      const { step, w } = clockPhase(now);
       for (let i = 0; i < paths.length; i++) {
         paths[i].setAttribute('d', build(depths[i], t));
-        paths[i].setAttribute('stroke', colourFor(depths[i], step, w));
+        paths[i].setAttribute(
+          'stroke',
+          mixCss(step, step + 1, bandProgress(depths[i], paths.length, step, w))
+        );
       }
       raf = requestAnimationFrame(tick);
     };

@@ -23,6 +23,18 @@ function read(file: string) {
 // published artefacts directly rather than restating numbers by hand. Anything
 // missing degrades to a hidden section instead of a broken one.
 const study = read('study.json');
+
+// What the headline types. Each is a claim about the archive that a reader can
+// check. "Arbitrage-free by construction" is deliberately absent: calendar
+// monotonicity is enforced in the fit, but the butterfly condition is checked
+// and published rather than guaranteed, so the true phrase is "checked".
+const PHRASES = [
+  'computed in the open.',
+  'refitted every close.',
+  'checked for arbitrage.',
+  'never overwritten.',
+  'published with its code.',
+];
 const lit = read('literature.json');
 
 const results = study?.results ?? [];
@@ -58,18 +70,24 @@ const counters = [
   title="Today"
   description="A public archive of computed options-derived volatility data, published every trading day, with the code that produced it."
   wide
+  overlay
 >
   <section class="hero">
-    <VolSurface height="78vh" />
+    <VolSurface height="100svh" ambient />
 
     <div class="hero-copy">
-      <h1 class="hero-title">
-        The volatility surface,<br />computed in the open.
+      <h1 class="hero-title" aria-label={`The volatility surface, ${PHRASES[0]}`}>
+        <span aria-hidden="true">The volatility surface,</span><br />
+        <span class="kinetic" aria-hidden="true" data-phrases={JSON.stringify(PHRASES)}>{PHRASES[0]}</span><span class="caret" aria-hidden="true"></span>
       </h1>
       <p class="hero-sub">
         Every trading day: option chains in, forwards from put and call parity,
         arbitrage-free surfaces out. Published with the code that produced them
         and the quality report saying what had to be thrown away.
+      </p>
+      <p class="hero-cta">
+        <a class="cta" href="/vol/SPY/">Explore the surface <span aria-hidden="true">&rarr;</span></a>
+        <a class="cta-quiet" href="/methodology/">How it is computed</a>
       </p>
       {latest && (
         <p class="hero-ribbon">
@@ -500,6 +518,29 @@ const counters = [
 
   .hero { margin: 0; position: relative; }
 
+  /* The hero is one full screen and the surface is its whole background, so
+     the axis key and drag hint that sit under it elsewhere would land below
+     the fold here. They stay on the surface page, where the plot is read. */
+  .hero :global(.surface-figure figcaption) { display: none; }
+
+  /* A scrim from the left, so the headline holds its contrast wherever the
+     surface has turned to. Pointer events pass through: the surface underneath
+     stays draggable. */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--ground-1) 88%, transparent) 0%,
+      color-mix(in srgb, var(--ground-1) 55%, transparent) 34%,
+      transparent 62%
+    );
+  }
+  .hero-copy { z-index: 2; }
+
   /* The surface was the whole hero, which meant arriving on a rotating chart
      with nothing telling you what it was. The copy sits over it rather than
      above it, so the first thing on screen is a claim and its evidence at the
@@ -515,7 +556,7 @@ const counters = [
     /* Bottom padding clears the surface's own axis legend, which sits in the
        figure's caption. Anchored flush to the bottom the copy lands straight
        on top of it. */
-    padding: 0 clamp(1rem, 4vw, 3rem) clamp(4.4rem, 9vh, 5.6rem);
+    padding: 0 clamp(1rem, 4vw, 3rem) clamp(3rem, 9vh, 6.5rem);
     pointer-events: none;
     background: linear-gradient(
       to top,
@@ -536,6 +577,55 @@ const counters = [
     color: var(--type);
     text-wrap: balance;
   }
+  /* The typed half of the headline never wraps, so a phrase changing length
+     cannot reflow the page under the reader. */
+  .kinetic { white-space: nowrap; }
+  .caret {
+    display: inline-block;
+    width: 0.055em;
+    height: 0.8em;
+    margin-left: 0.07em;
+    vertical-align: -0.04em;
+    background: var(--accent);
+    animation: caret-blink 1.06s steps(1) infinite;
+  }
+  /* Solid while it is typing or deleting, as a real cursor is. */
+  .caret.is-typing { animation: none; }
+  @keyframes caret-blink { 50% { opacity: 0; } }
+
+  .hero-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.8rem;
+    margin: 0 0 1.6rem;
+  }
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1.5rem;
+    border-radius: 999px;
+    background: var(--type);
+    color: var(--ground-1);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background-color 180ms ease, transform 180ms ease;
+  }
+  .cta:hover { background: var(--accent-bright, #B8ACD2); transform: translateX(2px); }
+  .cta-quiet {
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--type-muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 3px;
+  }
+  .cta-quiet:hover { color: var(--type); border-bottom-color: var(--accent); }
+
   .hero-sub {
     max-width: 32rem;
     margin: 0 0 1.3rem;
@@ -562,19 +652,25 @@ const counters = [
 
   /* Enter once, quietly. Anything more insistent competes with the surface,
      which is the thing actually worth looking at. */
-  .hero-title, .hero-sub, .hero-ribbon { animation: rise 900ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .hero-title, .hero-sub, .hero-cta, .hero-ribbon { animation: rise 900ms cubic-bezier(0.16, 1, 0.3, 1) both; }
   .hero-sub { animation-delay: 90ms; }
-  .hero-ribbon { animation-delay: 170ms; }
+  .hero-cta { animation-delay: 150ms; }
+  .hero-ribbon { animation-delay: 210ms; }
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to { opacity: 1; transform: none; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .hero-title, .hero-sub, .hero-ribbon { animation: none; }
+    .hero-title, .hero-sub, .hero-cta, .hero-ribbon { animation: none; }
+    .caret { animation: none; }
   }
 
   @media (max-width: 720px) {
     .hero-copy { position: static; width: auto; background: none; padding-top: 1.4rem; }
+    /* On a phone the copy sits under the surface rather than over it, so the
+       surface should not take the whole screen and push the headline off it. */
+    .hero :global(.surface-canvas) { height: 58svh; }
+    .hero::before { display: none; }
   }
 
   .below {
@@ -654,3 +750,63 @@ const counters = [
     vertical-align: 0.18em;
   }
 </style>
+
+<script>
+  import { bandProgress, clockPhase, mixRgb } from '../lib/choreography';
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const hero = document.querySelector<HTMLElement>('.hero');
+  const kinetic = document.querySelector<HTMLElement>('.kinetic');
+  const caret = document.querySelector<HTMLElement>('.caret');
+
+  // The caret takes the mark's colour at each instant, lifted toward white so a
+  // two-pixel bar stays visible. Cursor, logo and the surface's ribs therefore
+  // turn together, on one clock.
+  if (caret && hero && !reduced) {
+    const LIFT = 0.25;
+    let raf = 0;
+    const paint = (now: number) => {
+      const { step, w } = clockPhase(now);
+      const [r, g, b] = mixRgb(step, step + 1, bandProgress(0, 1, step, w));
+      const lift = (c: number) => Math.round(c + (255 - c) * LIFT);
+      caret.style.backgroundColor = `rgb(${lift(r)},${lift(g)},${lift(b)})`;
+      raf = requestAnimationFrame(paint);
+    };
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !raf) raf = requestAnimationFrame(paint);
+      else if (!entry.isIntersecting && raf) { cancelAnimationFrame(raf); raf = 0; }
+    }).observe(hero);
+  }
+
+  // Type a phrase out, hold it, take it back, type the next. Timers rather than
+  // frames: the pace is in characters, and a throttled background tab simply
+  // types more slowly, which is harmless.
+  if (kinetic && caret && !reduced) {
+    const phrases: string[] = JSON.parse(kinetic.dataset.phrases || '[]');
+    const TYPE_MS = 58, DELETE_MS = 26, HOLD_MS = 2800, GAP_MS = 420;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    (async () => {
+      let i = 0;
+      // Let the first phrase sit through the page's own entrance first.
+      await sleep(HOLD_MS + 1400);
+      for (;;) {
+        caret.classList.add('is-typing');
+        const current = phrases[i];
+        for (let n = current.length; n >= 0; n--) {
+          kinetic.textContent = current.slice(0, n);
+          await sleep(DELETE_MS);
+        }
+        await sleep(GAP_MS);
+        i = (i + 1) % phrases.length;
+        const next = phrases[i];
+        for (let n = 1; n <= next.length; n++) {
+          kinetic.textContent = next.slice(0, n);
+          await sleep(TYPE_MS);
+        }
+        caret.classList.remove('is-typing');
+        await sleep(HOLD_MS);
+      }
+    })();
+  }
+</script>
